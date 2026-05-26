@@ -109,7 +109,7 @@ export default function StudySession() {
   // 音声読み上げ
   function speak(text: string) {
     if ('speechSynthesis' in window) {
-      const utterance = new SynthesisUtterance(text);
+      const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = /^[A-Za-z0-9\s,.:?!'"-]+$/.test(text) ? 'en-US' : 'ja-JP';
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
