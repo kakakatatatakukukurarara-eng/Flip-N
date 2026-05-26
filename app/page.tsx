@@ -250,7 +250,7 @@ export default function StudySession() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-400 text-xs font-medium tracking-wider">
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 text-slate-400 text-xs font-bold tracking-widest">
         LOADING...
       </div>
     );
@@ -259,22 +259,22 @@ export default function StudySession() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans flex flex-col justify-between antialiased">
       
-      {/* 🍏 洗練されたモダンヘッダー */}
-      <header className="bg-white px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 border-b border-slate-100">
-        <div className="flex items-center justify-between w-full sm:w-auto">
-          <h1 className="text-base font-bold text-slate-900 tracking-tight">Flip-N</h1>
-          <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full text-[11px] font-semibold">
+      {/* 🍏 UI刷新：スマートで規則的なヘッダー構造 */}
+      <header className="bg-white px-6 py-4 border-b border-slate-100 flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs">
+        <div className="flex items-center justify-between">
+          <span className="text-base font-extrabold text-slate-900 tracking-tight">Flip-N</span>
+          <div className="flex items-center gap-1 bg-amber-50 text-amber-700 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
             <span>🔥</span>
             <span>{streak}日連続</span>
           </div>
         </div>
         
-        {/* ナビゲーションをよりフラットで現代的なタブに */}
-        <nav className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto overflow-x-auto">
-          <button onClick={() => setActiveTab('study')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${activeTab === 'study' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>暗記学習</button>
-          <button onClick={() => setActiveTab('test')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${activeTab === 'test' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>4択テスト</button>
-          <button onClick={() => setActiveTab('manage')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${activeTab === 'manage' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>カード管理</button>
-          <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}>学習分析</button>
+        {/* タブの余白と角丸の整合性向上 */}
+        <nav className="flex bg-slate-100 p-1 rounded-xl overflow-x-auto">
+          <button onClick={() => setActiveTab('study')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${activeTab === 'study' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>暗記学習</button>
+          <button onClick={() => setActiveTab('test')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${activeTab === 'test' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>4択テスト</button>
+          <button onClick={() => setActiveTab('manage')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${activeTab === 'manage' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>カード管理</button>
+          <button onClick={() => setActiveTab('dashboard')} className={`flex-1 md:flex-none px-4 py-1.5 rounded-lg text-xs font-bold transition whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-900'}`}>学習分析</button>
         </nav>
       </header>
 
@@ -282,13 +282,13 @@ export default function StudySession() {
       {activeTab === 'study' && (
         <main className="flex-1 flex flex-col items-center p-6 max-w-sm w-full mx-auto justify-center">
           
-          {/* 操作エリアの横幅・デザインを一体型に整頓 */}
-          <div className="w-full flex flex-col gap-2.5 mb-6">
-            <div className="flex flex-col sm:flex-row gap-1.5 w-full bg-slate-200/60 p-1 rounded-xl">
+          {/* UI刷新：一体感のある洗練された検索・フィルターコンポーネント */}
+          <div className="w-full flex flex-col gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-1.5 w-full bg-slate-200/50 p-1.5 rounded-xl border border-slate-200/30">
               <select 
                 value={selectedCategory} 
                 onChange={(e) => setSelectedCategory(e.target.value)} 
-                className="w-full sm:w-auto bg-white text-xs rounded-lg px-3 py-1.5 text-slate-700 outline-none shadow-xs font-medium cursor-pointer min-w-[110px] border-none"
+                className="w-full sm:w-auto bg-white text-xs rounded-lg px-3 py-2 text-slate-700 outline-none shadow-xs font-bold cursor-pointer min-w-[110px] border-none appearance-none text-center"
               >
                 <option value="All">すべて</option>
                 {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
@@ -299,14 +299,14 @@ export default function StudySession() {
                 value={searchQuery} 
                 onChange={(e) => setSearchQuery(e.target.value)} 
                 placeholder="単語を検索..." 
-                className="flex-1 bg-white text-xs rounded-lg px-3 py-1.5 text-slate-700 outline-none shadow-xs border-none" 
+                className="flex-1 bg-white text-xs rounded-lg px-4 py-2 text-slate-700 outline-none shadow-xs border-none font-medium" 
               />
             </div>
             
-            <div className="flex justify-end px-0.5">
+            <div className="flex justify-end">
               <button 
                 onClick={() => setIsShuffle(!isShuffle)} 
-                className={`text-[11px] px-3 py-1 rounded-full font-semibold transition-all shadow-xs ${isShuffle ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-700'}`}
+                className={`text-[11px] px-3 py-1 rounded-full font-bold transition-all ${isShuffle ? 'bg-blue-600 text-white shadow-sm' : 'bg-white border border-slate-200 text-slate-500 hover:text-slate-800 hover:border-slate-300'}`}
               >
                 {isShuffle ? '🎯 ランダム順' : '🔄 登録順'}
               </button>
@@ -315,48 +315,48 @@ export default function StudySession() {
 
           {displayCards.length === 0 ? (
             <div className="w-full bg-white p-8 rounded-2xl text-center shadow-xs border border-slate-100">
-              <p className="text-xs text-slate-400">カードが見つかりません。</p>
+              <p className="text-xs text-slate-400 font-medium">カードが見つかりません。</p>
             </div>
           ) : currentIndex >= displayCards.length ? (
             <div className="w-full bg-white p-8 rounded-2xl text-center shadow-sm border border-slate-100">
               <div className="text-2xl mb-2">🎉</div>
-              <h2 className="text-sm font-bold text-slate-900 mb-1">セクション完了！</h2>
-              <p className="text-xs text-slate-400 mb-4">すべてのカードをチェックしました。</p>
-              <button onClick={() => setCurrentIndex(0)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-xl transition text-xs shadow-sm">もう一度最初から</button>
+              <h2 className="text-sm font-extrabold text-slate-900 mb-1">セクション完了！</h2>
+              <p className="text-xs text-slate-400 mb-5">すべてのカードをチェックしました。</p>
+              <button onClick={() => setCurrentIndex(0)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-sm tracking-wide">もう一度最初から</button>
             </div>
           ) : (
             <>
-              {/* 情報エリアの上品なバッジ表示 */}
-              <div className="w-full mb-2 flex justify-between items-center text-[11px] text-slate-400 px-0.5">
-                <span className="bg-slate-200/80 px-2 py-0.5 rounded text-slate-600 font-semibold text-[10px] tracking-wide">{displayCards[currentIndex].category || '一般'}</span>
-                <span className="font-medium tracking-wider">{currentIndex + 1} / {displayCards.length}</span>
+              {/* 情報バッジのUI配置最適化 */}
+              <div className="w-full mb-2 flex justify-between items-center text-[11px] text-slate-400 px-1">
+                <span className="bg-slate-200/80 px-2 py-0.5 rounded-md text-slate-600 font-bold text-[10px] tracking-wider">{displayCards[currentIndex].category || '一般'}</span>
+                <span className="font-semibold tracking-wider text-slate-500">{currentIndex + 1} / {displayCards.length}</span>
               </div>
 
-              {/* 📐 高級感のある柔らかい影のカード（h-52） */}
-              <div onClick={() => setIsFlipped(!isFlipped)} className="w-full h-52 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center p-6 cursor-pointer hover:shadow-md transition-shadow relative select-none">
-                <button onClick={(e) => { e.stopPropagation(); speak(isFlipped ? displayCards[currentIndex].back : displayCards[currentIndex].front); }} className="absolute bottom-3 right-3 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-xs text-slate-500 shadow-xs border border-slate-100">🔊</button>
+              {/* UI刷新：無駄を削ぎ落としたスタイリッシュな単語カード */}
+              <div onClick={() => setIsFlipped(!isFlipped)} className="w-full h-52 bg-white rounded-2xl shadow-xs border border-slate-100 flex flex-col items-center justify-center p-6 cursor-pointer hover:shadow-sm transition-all relative select-none">
+                <button onClick={(e) => { e.stopPropagation(); speak(isFlipped ? displayCards[currentIndex].back : displayCards[currentIndex].front); }} className="absolute bottom-4 right-4 bg-slate-50 hover:bg-slate-100 w-8 h-8 rounded-full flex items-center justify-center text-xs text-slate-500 border border-slate-100 shadow-xs transition-colors">🔊</button>
                 
                 {!isFlipped ? (
-                  <div className="text-center px-2">
-                    <h1 className="text-xl font-bold text-slate-900 tracking-wide leading-tight">{displayCards[currentIndex].front}</h1>
-                    <span className="text-[10px] text-slate-300 font-medium block mt-3 tracking-wider">TAP TO FLIP</span>
+                  <div className="text-center px-4">
+                    <h1 className="text-2xl font-extrabold text-slate-900 tracking-wide leading-tight">{displayCards[currentIndex].front}</h1>
+                    <span className="text-[10px] text-slate-300 font-bold block mt-4 tracking-widest">TAP TO FLIP</span>
                   </div>
                 ) : (
-                  <div className="text-center w-full px-2">
-                    <h2 className="text-lg font-bold text-blue-600 mb-2.5">{displayCards[currentIndex].back}</h2>
+                  <div className="text-center w-full px-4">
+                    <h2 className="text-xl font-extrabold text-blue-600 mb-3 tracking-wide">{displayCards[currentIndex].back}</h2>
                     {displayCards[currentIndex].example && (
-                      <p className="text-[11px] text-slate-500 bg-slate-50/50 p-2 rounded-xl border border-slate-100 italic inline-block max-w-full text-center">"{displayCards[currentIndex].example}"</p>
+                      <p className="text-[11px] text-slate-500 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic inline-block max-w-full text-center leading-relaxed">"{displayCards[currentIndex].example}"</p>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* ボタンの文字を少し細く、スマートに変更 */}
-              <div className="w-full mt-4 grid grid-cols-2 gap-3">
-                <button onClick={() => handleResponse(false)} className="bg-white hover:bg-slate-50 text-red-500 font-semibold py-2.5 rounded-xl transition text-xs shadow-xs border border-slate-200">
+              {/* 操作ボタン：高さと視認性の黄金比バランス */}
+              <div className="w-full mt-5 grid grid-cols-2 gap-3">
+                <button onClick={() => handleResponse(false)} className="bg-white hover:bg-slate-50 text-red-500 font-bold py-3 rounded-xl transition text-xs shadow-xs border border-slate-200 tracking-wider">
                   忘れた
                 </button>
-                <button onClick={() => handleResponse(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 rounded-xl transition text-xs shadow-sm">
+                <button onClick={() => handleResponse(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition text-xs shadow-sm tracking-wider">
                   覚えた
                 </button>
               </div>
@@ -370,24 +370,24 @@ export default function StudySession() {
         <main className="flex-1 flex flex-col items-center p-6 max-w-sm w-full mx-auto justify-center">
           {cards.length < 4 ? (
             <div className="w-full bg-white p-6 rounded-2xl text-center shadow-xs border border-slate-100">
-              <p className="text-xs text-slate-400">4択クイズを遊ぶには、カード管理から単語を4枚以上登録してください。</p>
+              <p className="text-xs text-slate-400 font-medium">4択クイズを遊ぶには、カード管理から単語を4枚以上登録してください。</p>
             </div>
           ) : quizIndex >= cards.length ? (
             <div className="w-full bg-white p-8 rounded-2xl text-center shadow-sm border border-slate-100">
               <div className="text-2xl mb-2">🏆</div>
-              <h2 className="text-sm font-bold mb-1">テスト完了</h2>
-              <p className="text-base font-bold text-blue-600 my-2">{quizScore} / {cards.length}問 正解</p>
-              <button onClick={startQuiz} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-xl transition text-xs">もう一度テストする</button>
+              <h2 className="text-sm font-extrabold mb-1">テスト完了</h2>
+              <p className="text-base font-extrabold text-blue-600 my-2">{quizScore} / {cards.length}問 正解</p>
+              <button onClick={startQuiz} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition text-xs">もう一度テストする</button>
             </div>
           ) : (
             <div className="w-full flex flex-col">
-              <div className="mb-2 flex justify-between text-[11px] text-slate-400 px-0.5">
-                <span className="font-semibold text-slate-500">4択クイズ</span>
-                <span className="font-medium">{quizIndex + 1} / {cards.length}問目</span>
+              <div className="mb-2 flex justify-between text-[11px] text-slate-400 px-1 font-semibold">
+                <span>4択クイズ</span>
+                <span>{quizIndex + 1} / {cards.length}問目</span>
               </div>
 
               <div className="w-full h-36 bg-white rounded-2xl text-center mb-4 flex items-center justify-center shadow-xs border border-slate-100 px-4">
-                <h2 className="text-lg font-bold text-slate-900 tracking-wide">{cards[quizIndex].front}</h2>
+                <h2 className="text-xl font-extrabold text-slate-900 tracking-wide">{cards[quizIndex].front}</h2>
               </div>
 
               <div className="flex flex-col gap-2 w-full">
@@ -397,15 +397,15 @@ export default function StudySession() {
                   
                   let btnStyle = 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200';
                   if (quizSelected) {
-                    if (isCorrect) btnStyle = 'bg-green-50 border-green-300 text-green-700 font-semibold shadow-xs';
+                    if (isCorrect) btnStyle = 'bg-green-50 border-green-300 text-green-700 font-bold shadow-xs';
                     else if (isSelected) btnStyle = 'bg-red-50 border-red-200 text-red-600';
                   }
 
                   return (
-                    <button key={i} onClick={() => handleQuizAnswer(option)} disabled={quizSelected !== null} className={`w-full border text-left px-4 py-2.5 rounded-xl text-xs font-medium transition shadow-xs flex justify-between items-center ${btnStyle}`}>
+                    <button key={i} onClick={() => handleQuizAnswer(option)} disabled={quizSelected !== null} className={`w-full border text-left px-4 py-3 rounded-xl text-xs font-semibold transition shadow-xs flex justify-between items-center ${btnStyle}`}>
                       <span>{option}</span>
-                      {quizSelected && isCorrect && <span className="text-green-500 font-bold">✓</span>}
-                      {quizSelected && isSelected && !isCorrect && <span className="text-red-400 font-bold">✕</span>}
+                      {quizSelected && isCorrect && <span className="text-green-500 font-extrabold">✓</span>}
+                      {quizSelected && isSelected && !isCorrect && <span className="text-red-400 font-extrabold">✕</span>}
                     </button>
                   );
                 })}
@@ -421,11 +421,11 @@ export default function StudySession() {
           <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-100 mb-5">
             <h2 className="text-xs font-bold text-slate-800 mb-3">新しいカードを追加</h2>
             <form onSubmit={handleAddCard} className="flex flex-col gap-2.5">
-              <input type="text" value={newFront} onChange={(e) => setNewFront(e.target.value)} placeholder="問題" className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all" required />
-              <input type="text" value={newBack} onChange={(e) => setNewBack(e.target.value)} placeholder="答え" className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all" required />
-              <input type="text" value={newExample} onChange={(e) => setNewExample(e.target.value)} placeholder="例文（省略可能）" className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all" />
-              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="カテゴリ" className="w-full p-2 border border-slate-200 rounded-lg text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all" />
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-xl transition text-xs shadow-xs mt-1">追加する</button>
+              <input type="text" value={newFront} onChange={(e) => setNewFront(e.target.value)} placeholder="問題" className="w-full p-2.5 border border-slate-200 rounded-xl text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all font-medium" required />
+              <input type="text" value={newBack} onChange={(e) => setNewBack(e.target.value)} placeholder="答え" className="w-full p-2.5 border border-slate-200 rounded-xl text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all font-medium" required />
+              <input type="text" value={newExample} onChange={(e) => setNewExample(e.target.value)} placeholder="例文（省略可能）" className="w-full p-2.5 border border-slate-200 rounded-xl text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all font-medium" />
+              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="カテゴリ" className="w-full p-2.5 border border-slate-200 rounded-xl text-xs bg-white text-slate-900 outline-none focus:border-blue-500 transition-all font-medium" />
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl transition text-xs shadow-xs mt-1">追加する</button>
             </form>
           </div>
 
@@ -433,30 +433,30 @@ export default function StudySession() {
             <h2 className="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">登録済み ({cards.length})</h2>
             <div className="flex flex-col gap-2">
               {cards.map((card) => (
-                <div key={card.id} className="p-3 border border-slate-100 rounded-xl bg-slate-50/50 flex flex-col gap-1.5">
+                <div key={card.id} className="p-3.5 border border-slate-100 rounded-xl bg-slate-50/50 flex flex-col gap-2">
                   {editingCardId === card.id ? (
                     <div className="flex flex-col gap-2">
-                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white" />
-                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white" />
-                      <input type="text" value={editExample} onChange={(e) => setEditExample(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white" placeholder="例文" />
-                      <input type="text" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white" placeholder="カテゴリ" />
+                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white font-medium" />
+                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white font-medium" />
+                      <input type="text" value={editExample} onChange={(e) => setEditExample(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white font-medium" placeholder="例文" />
+                      <input type="text" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="p-2 border rounded-lg border-slate-200 text-xs bg-white font-medium" placeholder="カテゴリ" />
                       <div className="flex gap-2 justify-end mt-1">
-                        <button onClick={() => setEditingCardId(null)} className="text-xs text-slate-400 py-1 px-2">キャンセル</button>
-                        <button onClick={() => handleUpdateCard(card.id)} className="text-xs bg-blue-600 text-white py-1 px-3 rounded-lg shadow-xs font-semibold">保存</button>
+                        <button onClick={() => setEditingCardId(null)} className="text-xs text-slate-400 font-bold py-1 px-2">キャンセル</button>
+                        <button onClick={() => handleUpdateCard(card.id)} className="text-xs bg-blue-600 text-white py-1 px-3 rounded-lg shadow-xs font-bold">保存</button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
                       <div className="flex-1 pr-2">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-bold text-xs text-slate-900">{card.front}</span>
-                          <span className="text-[9px] bg-slate-200/60 px-1.5 py-0.5 rounded text-slate-500 font-semibold tracking-wide">{card.category || '一般'}</span>
+                          <span className="font-extrabold text-xs text-slate-900">{card.front}</span>
+                          <span className="text-[9px] bg-slate-200/60 px-1.5 py-0.5 rounded-md text-slate-500 font-bold tracking-wider">{card.category || '一般'}</span>
                         </div>
-                        <div className="text-xs text-slate-500 mt-0.5">{card.back}</div>
+                        <div className="text-xs text-slate-500 mt-0.5 font-medium">{card.back}</div>
                       </div>
-                      <div className="flex gap-1.5">
-                        <button onClick={() => startEditing(card)} className="text-xs text-slate-400 hover:text-blue-500 p-1">✏️</button>
-                        <button onClick={() => handleDeleteCard(card.id)} className="text-xs text-slate-400 hover:text-red-500 p-1">🗑️</button>
+                      <div className="flex gap-1">
+                        <button onClick={() => startEditing(card)} className="text-xs text-slate-300 hover:text-blue-500 p-1 transition-colors">✏️</button>
+                        <button onClick={() => handleDeleteCard(card.id)} className="text-xs text-slate-300 hover:text-red-500 p-1 transition-colors">🗑️</button>
                       </div>
                     </div>
                   )}
@@ -470,22 +470,22 @@ export default function StudySession() {
       {/* 4️⃣ ANALYTICS DASHBOARD */}
       {activeTab === 'dashboard' && (
         <main className="flex-1 max-w-sm w-full mx-auto p-6 flex flex-col gap-4 justify-center">
-          <div className="bg-white p-5 rounded-2xl text-center shadow-xs border border-slate-100">
+          <div className="bg-white p-6 rounded-2xl text-center shadow-xs border border-slate-100">
             <h2 className="text-xs font-bold text-slate-400 mb-4 tracking-wider uppercase">学習進捗</h2>
             
-            <div className="text-center mb-4">
-              <span className="text-2xl font-black text-blue-600">{masterRate}%</span>
-              <span className="text-[10px] text-slate-400 block font-medium mt-0.5">記憶定着率</span>
+            <div className="text-center mb-5">
+              <span className="text-3xl font-black text-blue-600">{masterRate}%</span>
+              <span className="text-[10px] text-slate-400 block font-bold mt-1 tracking-wider">記憶定着率</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
-              <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
-                <span className="text-[10px] text-slate-400 block mb-0.5">総カード数</span>
-                <span className="text-xs font-bold text-slate-700">{cards.length} 枚</span>
+              <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 block mb-0.5 font-bold">総カード数</span>
+                <span className="text-xs font-extrabold text-slate-700">{cards.length} 枚</span>
               </div>
-              <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
-                <span className="text-[10px] text-slate-400 block mb-0.5">長期記憶</span>
-                <span className="text-sm font-bold text-green-600">{masteredCards} 枚</span>
+              <div className="bg-slate-50/50 p-3 rounded-xl border border-slate-100">
+                <span className="text-[10px] text-slate-400 block mb-0.5 font-bold">長期記憶</span>
+                <span className="text-xs font-extrabold text-green-600">{masteredCards} 枚</span>
               </div>
             </div>
           </div>
@@ -493,7 +493,7 @@ export default function StudySession() {
       )}
 
       {/* フッター */}
-      <footer className="py-3 text-center text-[10px] text-slate-300 bg-white border-t border-slate-100 font-medium tracking-wide">
+      <footer className="py-3.5 text-center text-[9px] text-slate-300 bg-white border-t border-slate-100 font-bold tracking-widest">
         FLIP-N // POWERED BY NOBUHIRO SYSTEM
       </footer>
     </div>
