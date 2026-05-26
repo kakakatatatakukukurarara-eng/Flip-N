@@ -25,10 +25,9 @@ export default function StudySession() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'study' | 'test' | 'manage' | 'dashboard'>('study');
 
-  // 🔥 ストリーク（連続ログイン日数）用の状態
+  // 🔥 ストリーク
   const [streak, setStreak] = useState(0);
-
-  // 🎯 ランダム（シャッフル）モード用の状態
+  // 🎯 シャッフル
   const [isShuffle, setIsShuffle] = useState(false);
 
   // クイズ用の状態
@@ -60,9 +59,7 @@ export default function StudySession() {
         .from('cards')
         .select('*')
         .order('next_review_at', { ascending: true });
-      if (data) {
-        setCards(data);
-      }
+      if (data) setCards(data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -70,10 +67,9 @@ export default function StudySession() {
     }
   }
 
-  // 🔥 連続ログイン（ストリーク）の計算ロジック
+  // ログインストリーク計算
   useEffect(() => {
     fetchCards();
-
     const today = new Date().toDateString();
     const lastLogin = localStorage.getItem('last_login_date');
     const currentStreak = parseInt(localStorage.getItem('streak_count') || '0', 10);
@@ -92,7 +88,7 @@ export default function StudySession() {
     }
   }, []);
 
-  // フィルター・検索・シャッフルを適用する処理
+  // フィルター・検索・シャッフル
   useEffect(() => {
     let result = cards.filter(card => {
       const matchesCategory = selectedCategory === 'All' || card.category === selectedCategory;
@@ -101,7 +97,6 @@ export default function StudySession() {
       return matchesCategory && matchesSearch;
     });
 
-    // 🎯 シャッフルONならランダムに並び替える
     if (isShuffle) {
       result = [...result].sort(() => 0.5 - Math.random());
     }
@@ -114,7 +109,7 @@ export default function StudySession() {
   // 音声読み上げ
   function speak(text: string) {
     if ('speechSynthesis' in window) {
-      const utterance = new SpeechSynthesisUtterance(text);
+      const utterance = new SynthesisUtterance(text);
       utterance.lang = /^[A-Za-z0-9\s,.:?!'"-]+$/.test(text) ? 'en-US' : 'ja-JP';
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(utterance);
@@ -127,7 +122,6 @@ export default function StudySession() {
     }
   }, [isFlipped, currentIndex, activeTab]);
 
-  // 4択クイズの選択肢を作るロジック
   function startQuiz() {
     if (cards.length < 4) return;
     setQuizIndex(0);
@@ -136,9 +130,7 @@ export default function StudySession() {
   }
 
   useEffect(() => {
-    if (activeTab === 'test') {
-      startQuiz();
-    }
+    if (activeTab === 'test') startQuiz();
   }, [activeTab, cards]);
 
   function makeQuizOptions(index: number) {
@@ -176,7 +168,6 @@ export default function StudySession() {
     }, 1200);
   }
 
-  // 復習タイミングの計算
   async function handleResponse(isCorrect: boolean) {
     const currentCard = displayCards[currentIndex];
     if (!currentCard) return;
@@ -200,7 +191,6 @@ export default function StudySession() {
     }, 200);
   }
 
-  // カードを追加
   async function handleAddCard(e: React.FormEvent) {
     e.preventDefault();
     if (!newFront || !newBack) return;
@@ -219,7 +209,6 @@ export default function StudySession() {
     }
   }
 
-  // 編集モード
   function startEditing(card: Card) {
     setEditingCardId(card.id);
     setEditFront(card.front);
@@ -228,7 +217,6 @@ export default function StudySession() {
     setEditCategory(card.category || '一般');
   }
 
-  // 編集保存
   async function handleUpdateCard(id: number) {
     if (!editFront || !editBack) return;
     try {
@@ -262,7 +250,7 @@ export default function StudySession() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50 text-gray-500 text-sm font-medium">
+      <div className="flex items-center justify-center min-h-screen bg-gray-50 text-gray-500 text-xs font-medium">
         読み込み中...
       </div>
     );
@@ -271,91 +259,90 @@ export default function StudySession() {
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800 font-sans flex flex-col justify-between">
       
-      {/* 🍏 スッキリ普通のヘッダー */}
-      <header className="bg-white border-b border-gray-200 px-4 py-3 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 shadow-sm">
+      {/* 🍏 ヘッダー：上下のパディングと文字サイズのバランスを調整 */}
+      <header className="bg-white border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 shadow-sm">
         <div className="flex items-center justify-between w-full sm:w-auto">
-          <h1 className="text-lg font-bold text-gray-900 tracking-tight">Flip-N 単語帳</h1>
-          {/* 🔥 連続ログイン日数（ストリーク）のバッジを表示 */}
-          <div className="flex items-center gap-1 bg-orange-50 border border-orange-200 text-orange-600 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm">
+          <h1 className="text-base font-bold text-gray-900 tracking-tight">Flip-N 単語帳</h1>
+          <div className="flex items-center gap-1 bg-orange-50 border border-orange-100 text-orange-600 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
             <span>🔥</span>
-            <span>{streak}日連続学習中</span>
+            <span>{streak}日連続</span>
           </div>
         </div>
         
-        {/* 見慣れた普通のメニュータブ */}
+        {/* メニューのボタン幅と余白をすっきり均等に */}
         <nav className="flex bg-gray-100 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
-          <button onClick={() => setActiveTab('study')} className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-md text-xs font-medium transition ${activeTab === 'study' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>暗記学習</button>
-          <button onClick={() => setActiveTab('test')} className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-md text-xs font-medium transition ${activeTab === 'test' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>4択テスト</button>
-          <button onClick={() => setActiveTab('manage')} className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-md text-xs font-medium transition ${activeTab === 'manage' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>カード管理</button>
-          <button onClick={() => setActiveTab('dashboard')} className={`flex-1 sm:flex-none text-center px-4 py-2 rounded-md text-xs font-medium transition ${activeTab === 'dashboard' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-900'}`}>学習分析</button>
+          <button onClick={() => setActiveTab('study')} className={`px-4 py-1.5 rounded-md text-xs font-medium transition whitespace-nowrap ${activeTab === 'study' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>暗記学習</button>
+          <button onClick={() => setActiveTab('test')} className={`px-4 py-1.5 rounded-md text-xs font-medium transition whitespace-nowrap ${activeTab === 'test' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>4択テスト</button>
+          <button onClick={() => setActiveTab('manage')} className={`px-4 py-1.5 rounded-md text-xs font-medium transition whitespace-nowrap ${activeTab === 'manage' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>カード管理</button>
+          <button onClick={() => setActiveTab('dashboard')} className={`px-4 py-1.5 rounded-md text-xs font-medium transition whitespace-nowrap ${activeTab === 'dashboard' ? 'bg-white text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-900'}`}>学習分析</button>
         </nav>
       </header>
 
       {/* 1️⃣ STUDY MODE */}
       {activeTab === 'study' && (
-        <main className="flex-1 flex flex-col items-center p-4 max-w-md w-full mx-auto justify-center">
-          {/* 検索バー ＆ 🎯 シャッフル切り替え */}
-          <div className="w-full flex flex-col gap-2 mb-4">
-            <div className="flex gap-2">
-              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-lg px-2 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-sm">
+        <main className="flex-1 flex flex-col items-center p-6 max-w-md w-full mx-auto justify-center">
+          
+          {/* 検索・操作エリアの横並びバランスを改善 */}
+          <div className="w-full flex flex-col gap-2 mb-5">
+            <div className="flex gap-2 w-full">
+              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-lg px-2.5 py-1.5 text-gray-700 outline-none focus:border-blue-500 shadow-xs">
                 <option value="All">すべて</option>
                 {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="単語を検索..." className="flex-1 bg-white border border-gray-300 text-xs rounded-lg px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-sm" />
+              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="単語を検索..." className="flex-1 bg-white border border-gray-300 text-xs rounded-lg px-3 py-1.5 text-gray-700 outline-none focus:border-blue-500 shadow-xs" />
             </div>
             
-            {/* 🎯 シャッフル切り替えスイッチ */}
             <div className="flex justify-end">
-              <button onClick={() => setIsShuffle(!isShuffle)} className={`text-xs px-3 py-1 rounded-md border font-medium transition-all ${isShuffle ? 'bg-blue-50 border-blue-300 text-blue-600' : 'bg-white border-gray-300 text-gray-600'}`}>
-                {isShuffle ? '🎯 ランダム順: ON' : '🔄 登録順'}
+              <button onClick={() => setIsShuffle(!isShuffle)} className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all shadow-xs ${isShuffle ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-300 text-gray-600'}`}>
+                {isShuffle ? '🎯 ランダム順' : '🔄 登録順'}
               </button>
             </div>
           </div>
 
           {displayCards.length === 0 ? (
-            <div className="w-full bg-white border border-gray-200 p-8 rounded-xl text-center shadow-sm">
-              <p className="text-sm text-gray-400">カードが見つかりません。</p>
+            <div className="w-full bg-white border border-gray-200 p-8 rounded-xl text-center shadow-xs">
+              <p className="text-xs text-gray-400">カードが見つかりません。</p>
             </div>
           ) : currentIndex >= displayCards.length ? (
-            <div className="w-full bg-white border border-gray-200 p-8 rounded-xl text-center shadow-sm">
-              <div className="text-3xl mb-3">🎉</div>
-              <h2 className="text-base font-bold text-gray-900 mb-1">セクション完了！</h2>
+            <div className="w-full bg-white border border-gray-200 p-8 rounded-xl text-center shadow-xs">
+              <div className="text-2xl mb-2">🎉</div>
+              <h2 className="text-sm font-bold text-gray-900 mb-1">セクション完了！</h2>
               <p className="text-xs text-gray-500 mb-4">すべてのカードをチェックしました。</p>
-              <button onClick={() => setCurrentIndex(0)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs shadow-sm">もう一度最初から</button>
+              <button onClick={() => setCurrentIndex(0)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs shadow-xs">もう一度最初から</button>
             </div>
           ) : (
             <>
-              {/* 進捗度 */}
-              <div className="w-full mb-3 flex justify-between items-center text-xs text-gray-500">
-                <span className="bg-gray-200 px-2 py-0.5 rounded text-gray-700 font-medium">{displayCards[currentIndex].category || '一般'}</span>
-                <span>{currentIndex + 1} / {displayCards.length}</span>
+              {/* 情報表示エリアの幅と余白を最適化 */}
+              <div className="w-full mb-2 flex justify-between items-center text-[11px] text-gray-500 px-1">
+                <span className="bg-gray-100 border border-gray-200 px-2 py-0.5 rounded text-gray-600 font-medium">{displayCards[currentIndex].category || '一般'}</span>
+                <span className="font-medium">{currentIndex + 1} / {displayCards.length}</span>
               </div>
 
-              {/* 普通で見やすいプレーンなカード */}
-              <div onClick={() => setIsFlipped(!isFlipped)} className="w-full h-64 bg-white border border-gray-200 rounded-xl shadow-sm flex flex-col items-center justify-center p-6 cursor-pointer hover:border-gray-300 relative select-none">
-                <button onClick={(e) => { e.stopPropagation(); speak(isFlipped ? displayCards[currentIndex].back : displayCards[currentIndex].front); }} className="absolute top-3 right-3 bg-gray-100 hover:bg-gray-200 w-7 h-7 rounded-full flex items-center justify-center text-xs text-gray-600 border border-gray-200">🔊</button>
+              {/* 📐 カードのサイズ感を縦長から「使いやすい手頃な比率（h-52）」へ修正 */}
+              <div onClick={() => setIsFlipped(!isFlipped)} className="w-full h-52 bg-white border border-gray-200 rounded-xl shadow-xs flex flex-col items-center justify-center p-6 cursor-pointer hover:border-gray-300 relative select-none">
+                <button onClick={(e) => { e.stopPropagation(); speak(isFlipped ? displayCards[currentIndex].back : displayCards[currentIndex].front); }} className="absolute top-3 right-3 bg-gray-50 hover:bg-gray-100 w-7 h-7 rounded-full flex items-center justify-center text-xs text-gray-500 border border-gray-200">🔊</button>
                 
                 {!isFlipped ? (
-                  <div className="text-center">
-                    <h1 className="text-2xl font-bold text-gray-900">{displayCards[currentIndex].front}</h1>
-                    <span className="text-[10px] text-gray-400 block mt-2">タップして答えを表示</span>
+                  <div className="text-center px-4">
+                    <h1 className="text-xl font-bold text-gray-900 tracking-wide leading-tight">{displayCards[currentIndex].front}</h1>
+                    <span className="text-[10px] text-gray-400 block mt-3">タップして答えを表示</span>
                   </div>
                 ) : (
-                  <div className="text-center w-full">
-                    <h2 className="text-xl font-bold text-blue-600 mb-2">{displayCards[currentIndex].back}</h2>
+                  <div className="text-center w-full px-4">
+                    <h2 className="text-lg font-bold text-blue-600 mb-3">{displayCards[currentIndex].back}</h2>
                     {displayCards[currentIndex].example && (
-                      <p className="text-xs text-gray-500 bg-gray-50 p-2.5 rounded-lg border border-gray-100 italic">"{displayCards[currentIndex].example}"</p>
+                      <p className="text-[11px] text-gray-500 bg-gray-50 p-2 rounded-lg border border-gray-100 italic inline-block max-w-full text-center">"{displayCards[currentIndex].example}"</p>
                     )}
                   </div>
                 )}
               </div>
 
-              {/* 普通の押しやすい ⭕❌ ボタン */}
+              {/* ボタンの高さとフォントサイズのバランス調整 */}
               <div className="w-full mt-4 grid grid-cols-2 gap-3">
-                <button onClick={() => handleResponse(false)} className="bg-white border border-gray-300 hover:bg-red-50 text-red-600 font-semibold py-3 rounded-xl transition text-xs shadow-sm">
+                <button onClick={() => handleResponse(false)} className="bg-white border border-gray-300 hover:bg-red-50 hover:border-red-200 text-red-600 font-medium py-2.5 rounded-lg transition text-xs shadow-xs">
                   ❌ 忘れた
                 </button>
-                <button onClick={() => handleResponse(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition text-xs shadow-sm">
+                <button onClick={() => handleResponse(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition text-xs shadow-xs">
                   ⭕ 覚えた
                 </button>
               </div>
@@ -366,27 +353,28 @@ export default function StudySession() {
 
       {/* 2️⃣ TEST MODE */}
       {activeTab === 'test' && (
-        <main className="flex-1 flex flex-col items-center p-4 max-w-md w-full mx-auto justify-center">
+        <main className="flex-1 flex flex-col items-center p-6 max-w-md w-full mx-auto justify-center">
           {cards.length < 4 ? (
-            <div className="w-full bg-white border border-gray-200 p-6 rounded-xl text-center shadow-sm">
+            <div className="w-full bg-white border border-gray-200 p-6 rounded-xl text-center shadow-xs">
               <p className="text-xs text-gray-500">4択クイズを遊ぶには、カード管理から単語を4枚以上登録してください。</p>
             </div>
           ) : quizIndex >= cards.length ? (
-            <div className="w-full bg-white border border-gray-200 p-8 rounded-xl text-center shadow-sm">
-              <div className="text-3xl mb-2">🏆</div>
-              <h2 className="text-base font-bold mb-1">テスト完了</h2>
-              <p className="text-lg font-bold text-blue-600 my-2">{quizScore} / {cards.length}問 正解</p>
+            <div className="w-full bg-white border border-gray-200 p-8 rounded-xl text-center shadow-xs">
+              <div className="text-2xl mb-2">🏆</div>
+              <h2 className="text-sm font-bold mb-1">テスト完了</h2>
+              <p className="text-base font-bold text-blue-600 my-2">{quizScore} / {cards.length}問 正解</p>
               <button onClick={startQuiz} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs">もう一度テストする</button>
             </div>
           ) : (
             <div className="w-full flex flex-col">
-              <div className="mb-2 flex justify-between text-xs text-gray-500">
+              <div className="mb-2 flex justify-between text-[11px] text-gray-500 px-1">
                 <span>4択クイズ</span>
                 <span>{quizIndex + 1} / {cards.length}問目</span>
               </div>
 
-              <div className="w-full p-6 bg-white border border-gray-200 rounded-xl text-center mb-4 min-h-32 flex items-center justify-center shadow-sm">
-                <h2 className="text-xl font-bold text-gray-900">{cards[quizIndex].front}</h2>
+              {/* クイズ出題エリアの高さバランスを調整 */}
+              <div className="w-full h-36 bg-white border border-gray-200 rounded-xl text-center mb-4 flex items-center justify-center shadow-xs px-4">
+                <h2 className="text-lg font-bold text-gray-900">{cards[quizIndex].front}</h2>
               </div>
 
               <div className="flex flex-col gap-2 w-full">
@@ -394,14 +382,14 @@ export default function StudySession() {
                   const isSelected = quizSelected === option;
                   const isCorrect = option === cards[quizIndex].back;
                   
-                  let btnStyle = 'bg-white border-gray-300 hover:bg-gray-50 text-gray-800';
+                  let btnStyle = 'bg-white border-gray-300 hover:bg-gray-50 text-gray-700';
                   if (quizSelected) {
-                    if (isCorrect) btnStyle = 'bg-green-50 border-green-400 text-green-700 font-bold';
-                    else if (isSelected) btnStyle = 'bg-red-50 border-red-400 text-red-700';
+                    if (isCorrect) btnStyle = 'bg-green-50 border-green-300 text-green-700 font-semibold';
+                    else if (isSelected) btnStyle = 'bg-red-50 border-red-300 text-red-700';
                   }
 
                   return (
-                    <button key={i} onClick={() => handleQuizAnswer(option)} disabled={quizSelected !== null} className={`w-full border text-left px-4 py-3 rounded-lg text-xs font-medium transition shadow-sm flex justify-between items-center ${btnStyle}`}>
+                    <button key={i} onClick={() => handleQuizAnswer(option)} disabled={quizSelected !== null} className={`w-full border text-left px-4 py-2.5 rounded-lg text-xs font-medium transition shadow-xs flex justify-between items-center ${btnStyle}`}>
                       <span>{option}</span>
                       {quizSelected && isCorrect && <span className="text-green-600">⭕</span>}
                       {quizSelected && isSelected && !isCorrect && <span className="text-red-600">❌</span>}
@@ -416,42 +404,42 @@ export default function StudySession() {
 
       {/* 3️⃣ DATABASE MODE */}
       {activeTab === 'manage' && (
-        <main className="flex-1 max-w-md w-full mx-auto p-4 overflow-y-auto max-h-[calc(100vh-120px)]">
-          <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm mb-4">
-            <h2 className="text-xs font-bold text-gray-700 mb-3">新しいカードを追加</h2>
-            <form onSubmit={handleAddCard} className="flex flex-col gap-2.5">
-              <input type="text" value={newFront} onChange={(e) => setNewFront(e.target.value)} placeholder="問題（例: Apple）" className="w-full p-2 rounded-lg border border-gray-300 text-xs bg-white text-gray-900 outline-none focus:border-blue-500" required />
-              <input type="text" value={newBack} onChange={(e) => setNewBack(e.target.value)} placeholder="答え（例: りんご）" className="w-full p-2 rounded-lg border border-gray-300 text-xs bg-white text-gray-900 outline-none focus:border-blue-500" required />
-              <input type="text" value={newExample} onChange={(e) => setNewExample(e.target.value)} placeholder="例文（省略可能）" className="w-full p-2 rounded-lg border border-gray-300 text-xs bg-white text-gray-900 outline-none focus:border-blue-500" />
-              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="カテゴリ（例: 英語）" className="w-full p-2 rounded-lg border border-gray-300 text-xs bg-white text-gray-900 outline-none focus:border-blue-500" />
-              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs shadow-sm">追加する</button>
+        <main className="flex-1 max-w-md w-full mx-auto p-6 overflow-y-auto max-h-[calc(100vh-140px)]">
+          <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-xs mb-5">
+            <h2 className="text-xs font-bold text-gray-800 mb-3">新しいカードを追加</h2>
+            <form onSubmit={handleAddCard} className="flex flex-col gap-2">
+              <input type="text" value={newFront} onChange={(e) => setNewFront(e.target.value)} placeholder="問題（例: Apple）" className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-gray-900 outline-none focus:border-blue-500 transition-all" required />
+              <input type="text" value={newBack} onChange={(e) => setNewBack(e.target.value)} placeholder="答え（例: りんご）" className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-gray-900 outline-none focus:border-blue-500 transition-all" required />
+              <input type="text" value={newExample} onChange={(e) => setNewExample(e.target.value)} placeholder="例文（省略可能）" className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-gray-900 outline-none focus:border-blue-500 transition-all" />
+              <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="カテゴリ（例: 英語）" className="w-full p-2 border border-gray-300 rounded-lg text-xs bg-white text-gray-900 outline-none focus:border-blue-500 transition-all" />
+              <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition text-xs shadow-xs mt-1">追加する</button>
             </form>
           </div>
 
-          <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-sm">
-            <h2 className="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">登録済みのカード ({cards.length})</h2>
+          <div className="bg-white border border-gray-200 p-4 rounded-xl shadow-xs">
+            <h2 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">登録済みのカード ({cards.length})</h2>
             <div className="flex flex-col gap-2">
               {cards.map((card) => (
-                <div key={card.id} className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col gap-2">
+                <div key={card.id} className="p-3 border border-gray-150 rounded-lg bg-gray-50 flex flex-col gap-1.5">
                   {editingCardId === card.id ? (
                     <div className="flex flex-col gap-2">
-                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className="p-2 border rounded border-gray-300 text-xs bg-white" />
-                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className="p-2 border rounded border-gray-300 text-xs bg-white" />
-                      <input type="text" value={editExample} onChange={(e) => setEditExample(e.target.value)} className="p-2 border rounded border-gray-300 text-xs bg-white" placeholder="例文" />
-                      <input type="text" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="p-2 border rounded border-gray-300 text-xs bg-white" placeholder="カテゴリ" />
-                      <div className="flex gap-2 justify-end">
+                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className="p-2 border rounded-lg border-gray-300 text-xs bg-white" />
+                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className="p-2 border rounded-lg border-gray-300 text-xs bg-white" />
+                      <input type="text" value={editExample} onChange={(e) => setEditExample(e.target.value)} className="p-2 border rounded-lg border-gray-300 text-xs bg-white" placeholder="例文" />
+                      <input type="text" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className="p-2 border rounded-lg border-gray-300 text-xs bg-white" placeholder="カテゴリ" />
+                      <div className="flex gap-2 justify-end mt-1">
                         <button onClick={() => setEditingCardId(null)} className="text-xs text-gray-500 py-1 px-2">キャンセル</button>
-                        <button onClick={() => handleUpdateCard(card.id)} className="text-xs bg-blue-600 text-white py-1 px-3 rounded">保存</button>
+                        <button onClick={() => handleUpdateCard(card.id)} className="text-xs bg-blue-600 text-white py-1 px-3 rounded-md shadow-xs">保存</button>
                       </div>
                     </div>
                   ) : (
                     <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-1.5">
+                      <div className="flex-1 pr-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-xs text-gray-900">{card.front}</span>
-                          <span className="text-[9px] bg-white border border-gray-200 px-1 py-0.5 rounded text-gray-500">{card.category || '一般'}</span>
+                          <span className="text-[10px] bg-white border border-gray-200 px-1.5 py-0.5 rounded text-gray-500 font-medium">{card.category || '一般'}</span>
                         </div>
-                        <div className="text-xs text-gray-600">{card.back}</div>
+                        <div className="text-xs text-gray-600 mt-0.5">{card.back}</div>
                       </div>
                       <div className="flex gap-1">
                         <button onClick={() => startEditing(card)} className="text-xs text-gray-400 hover:text-blue-500 p-1">✏️</button>
@@ -468,19 +456,19 @@ export default function StudySession() {
 
       {/* 4️⃣ ANALYTICS DASHBOARD */}
       {activeTab === 'dashboard' && (
-        <main className="flex-1 max-w-md w-full mx-auto p-4 flex flex-col gap-4 justify-center">
-          <div className="bg-white border border-gray-200 p-5 rounded-xl text-center shadow-sm">
+        <main className="flex-1 max-w-md w-full mx-auto p-6 flex flex-col gap-4 justify-center">
+          <div className="bg-white border border-gray-200 p-5 rounded-xl text-center shadow-xs">
             <h2 className="text-xs font-bold text-gray-400 mb-4 tracking-wider uppercase">学習進捗</h2>
             
             <div className="text-center mb-4">
-              <span className="text-3xl font-black text-blue-600">{masterRate}%</span>
+              <span className="text-2xl font-black text-blue-600">{masterRate}%</span>
               <span className="text-[10px] text-gray-400 block font-medium mt-0.5">記憶定着率</span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200">
                 <span className="text-[10px] text-gray-400 block mb-0.5">総カード数</span>
-                <span className="text-sm font-bold text-gray-700">{cards.length} 枚</span>
+                <span className="text-xs font-bold text-gray-700">{cards.length} 枚</span>
               </div>
               <div className="bg-gray-50 p-2.5 rounded-lg border border-gray-200">
                 <span className="text-[10px] text-gray-400 block mb-0.5">長期記憶</span>
@@ -492,8 +480,8 @@ export default function StudySession() {
       )}
 
       {/* フッター */}
-      <footer className="py-2.5 text-center text-[10px] text-gray-400 border-t border-gray-200 bg-white">
-        Flip-N アプリ v4.0 Standard // Powered by Nobuhiro System
+      <footer className="py-3 text-center text-[10px] text-gray-400 border-t border-gray-200 bg-white">
+        Flip-N アプリ v4.1 Standard // Powered by Nobuhiro System
       </footer>
     </div>
   );
