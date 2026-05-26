@@ -282,18 +282,35 @@ export default function StudySession() {
       {activeTab === 'study' && (
         <main className="flex-1 flex flex-col items-center p-6 max-w-md w-full mx-auto justify-center">
           
-          {/* 検索・操作エリアの横並びバランスを改善 */}
-          <div className="w-full flex flex-col gap-2 mb-5">
-            <div className="flex gap-2 w-full">
-              <select value={selectedCategory} onChange={(e) => setSelectedCategory(e.target.value)} className="bg-white border border-gray-300 text-xs rounded-lg px-2.5 py-1.5 text-gray-700 outline-none focus:border-blue-500 shadow-xs">
-                <option value="All">すべて</option>
+          {/* 検索・操作エリアのバランスを最適化 */}
+          <div className="w-full flex flex-col gap-3 mb-5">
+            <div className="flex flex-col sm:flex-row gap-2 w-full">
+              {/* カテゴリ選択：スマホでは全幅、PCでは適切な幅に */}
+              <select 
+                value={selectedCategory} 
+                onChange={(e) => setSelectedCategory(e.target.value)} 
+                className="w-full sm:w-auto bg-white border border-gray-300 text-xs rounded-lg px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-xs cursor-pointer min-w-[120px]"
+              >
+                <option value="All">すべてのカテゴリ</option>
                 {uniqueCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
-              <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="単語を検索..." className="flex-1 bg-white border border-gray-300 text-xs rounded-lg px-3 py-1.5 text-gray-700 outline-none focus:border-blue-500 shadow-xs" />
+              
+              {/* 検索バー：残りのスペースを綺麗に埋める */}
+              <input 
+                type="text" 
+                value={searchQuery} 
+                onChange={(e) => setSearchQuery(e.target.value)} 
+                placeholder="単語を検索..." 
+                className="flex-1 bg-white border border-gray-300 text-xs rounded-lg px-3 py-2 text-gray-700 outline-none focus:border-blue-500 shadow-xs" 
+              />
             </div>
             
+            {/* シャッフルボタン：位置を少し下げて独立させ、押しやすく */}
             <div className="flex justify-end">
-              <button onClick={() => setIsShuffle(!isShuffle)} className={`text-[11px] px-2.5 py-1 rounded-md border font-medium transition-all shadow-xs ${isShuffle ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-300 text-gray-600'}`}>
+              <button 
+                onClick={() => setIsShuffle(!isShuffle)} 
+                className={`text-[11px] px-3 py-1.5 rounded-md border font-medium transition-all shadow-xs ${isShuffle ? 'bg-blue-50 border-blue-200 text-blue-600' : 'bg-white border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+              >
                 {isShuffle ? '🎯 ランダム順' : '🔄 登録順'}
               </button>
             </div>
