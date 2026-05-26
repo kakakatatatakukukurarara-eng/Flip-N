@@ -3,13 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 
-// ⭕ コードから鍵を消去し、環境変数（秘密の引き出し）から読み込む安全な方式に変更！
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 interface Card {
-// ...ここから下は一切いじらなくて大丈夫です！
   id: number;
   front: string;
   back: string;
@@ -24,10 +22,7 @@ export default function StudySession() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [loading, setLoading] = useState(true);
-  // 🦄 ルートA: タブに「test」を追加
   const [activeTab, setActiveTab] = useState<'study' | 'test' | 'manage' | 'dashboard'>('study');
-  
-  // 🎨 ルートB: ダークモード状態
   const [darkMode, setDarkMode] = useState(false);
 
   // クイズ用の状態
@@ -44,6 +39,13 @@ export default function StudySession() {
   const [newCategory, setNewCategory] = useState('一般');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 📝 編集機能用の状態（新しく追加）
+  const [editingCardId, setEditingCardId] = useState<number | null>(null);
+  const [editFront, setEditFront] = useState('');
+  const [editBack, setEditBack] = useState('');
+  const [editExample, setEditExample] = useState('');
+  const [editCategory, setEditCategory] = useState('');
 
   // データを読み込む
   async function fetchCards() {
@@ -81,7 +83,7 @@ export default function StudySession() {
     }
   }, [isFlipped, currentIndex, activeTab]);
 
-  // 🦄 ルートA: 4択クイズの選択肢を作るロジック
+  // 4択クイズの選択肢を作るロジック
   function startQuiz() {
     if (cards.length < 4) {
       alert('クイズで遊ぶには、カードを4枚以上登録してください！');
@@ -96,21 +98,18 @@ export default function StudySession() {
   function makeQuizOptions(index: number) {
     setQuizSelected(null);
     const correctAnswer = cards[index].back;
-    
-    // 他のカードから誤答をシャッフルして持ってくる
     const wrongAnswers = cards
       .filter(c => c.back !== correctAnswer)
       .map(c => c.back)
       .sort(() => 0.5 - Math.random())
       .slice(0, 3);
 
-    // 正解と誤答を混ぜて4択にする
     const options = [correctAnswer, ...wrongAnswers].sort(() => 0.5 - Math.random());
     setQuizOptions(options);
   }
 
   function handleQuizAnswer(option: string) {
-    if (quizSelected) return; // 連続クリック防止
+    if (quizSelected) return;
     setQuizSelected(option);
     
     const isCorrect = option === cards[quizIndex].back;
@@ -126,7 +125,7 @@ export default function StudySession() {
         setQuizIndex(prev => prev + 1);
         makeQuizOptions(quizIndex + 1);
       } else {
-        setQuizIndex(prev => prev + 1); // 終了画面へ
+        setQuizIndex(prev => prev + 1);
       }
     }, 1500);
   }
@@ -174,6 +173,38 @@ export default function StudySession() {
     }
   }
 
+  // 📝 編集モードを開始する処理
+  function startEditing(card: Card) {
+    setEditingCardId(card.id);
+    setEditFront(card.front);
+    setEditBack(card.back);
+    setEditExample(card.example || '');
+    setEditCategory(card.category || '一般');
+  }
+
+  // 📝 編集内容をSupabaseに保存する処理
+  async function handleUpdateCard(id: number) {
+    if (!editFront || !editBack) return;
+    try {
+      const { error } = await supabase
+        .from('cards')
+        .update({
+          front: editFront,
+          back: editBack,
+          example: editExample || null,
+          category: editCategory
+        })
+        .eq('id', id);
+
+      if (!error) {
+        setEditingCardId(null); // 編集モード終了
+        fetchCards(); // データを再読込
+      }
+    } catch (e) {
+      alert('更新に失敗しました');
+    }
+  }
+
   async function handleDeleteCard(id: number) {
     if (!confirm('このカードを削除しますか？')) return;
     try {
@@ -205,14 +236,12 @@ export default function StudySession() {
   }
 
   return (
-    // 🎨 ルートB: 全体の背景色をダークモードに対応
     <div className={`min-h-screen font-sans flex flex-col justify-between transition-colors duration-300 ${darkMode ? 'bg-gray-950 text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
       
       {/* 🍏 ヘッダー */}
       <header className={`px-6 py-4 flex flex-col md:flex-row md:justify-between md:items-center gap-4 shadow-sm border-b transition-colors duration-300 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
         <div className="flex justify-between items-center w-full md:w-auto">
           <h1 className="text-xl font-bold tracking-tight">Flip-N 単語帳</h1>
-          {/* 🎨 ルートB: ダークモード切り替えスイッチ */}
           <button onClick={() => setDarkMode(!darkMode)} className={`p-2 rounded-xl text-sm border shadow-sm transition-all md:hidden`}>
             {darkMode ? '☀️ ライト' : '🌙 ダーク'}
           </button>
@@ -230,7 +259,7 @@ export default function StudySession() {
         </nav>
       </header>
 
-      {/* 1️⃣ STUDY MODE (暗記学習) */}
+      {/* 1️⃣ STUDY MODE */}
       {activeTab === 'study' && (
         <main className="flex-1 flex flex-col items-center justify-between p-4 max-w-md w-full mx-auto my-auto">
           <div className="w-full flex gap-2 mb-6">
@@ -264,11 +293,9 @@ export default function StudySession() {
                 </div>
               </div>
 
-              {/* 🎨 ルートB: 3D回転アニメーション付きのカード */}
               <div className="w-full h-80 [perspective:1000px] cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
                 <div className={`relative w-full h-full transition-transform duration-500 [transform-style:preserve-3d] ${isFlipped ? '[transform:rotateY(180deg)]' : ''}`}>
                   
-                  {/* カード表面 */}
                   <div className={`absolute inset-0 w-full h-full p-8 border rounded-3xl shadow-md flex flex-col items-center justify-center [backface-visibility:hidden] transition-colors ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
                     <div className="absolute top-4 right-4 bg-gray-100 dark:bg-gray-800 text-gray-400 px-2 py-0.5 rounded text-[10px] font-medium border border-gray-200 dark:border-gray-700">熟練度 LV.{filteredCards[currentIndex].interval}</div>
                     <span className="text-[10px] font-bold tracking-wider text-gray-300 block mb-2">QUESTION</span>
@@ -276,7 +303,6 @@ export default function StudySession() {
                     <button onClick={(e) => { e.stopPropagation(); speak(filteredCards[currentIndex].front); }} className="absolute bottom-4 right-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-8 h-8 rounded-full flex items-center justify-center transition text-sm text-gray-500">🔊</button>
                   </div>
 
-                  {/* カード裏面 */}
                   <div className={`absolute inset-0 w-full h-full p-8 border rounded-3xl shadow-md flex flex-col items-center justify-center [backface-visibility:hidden] [transform:rotateY(180deg)] transition-colors ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-blue-100'}`}>
                     <span className="text-[10px] font-bold tracking-wider text-blue-400 block mb-2">ANSWER</span>
                     <h2 className="text-2xl font-bold mb-4 text-blue-600 dark:text-blue-400 text-center">{filteredCards[currentIndex].back}</h2>
@@ -304,7 +330,7 @@ export default function StudySession() {
         </main>
       )}
 
-      {/* 2️⃣ 🦄 ルートA: クイズモード画面 */}
+      {/* 2️⃣ TEST MODE */}
       {activeTab === 'test' && (
         <main className="flex-1 flex flex-col items-center justify-center p-4 max-w-md w-full mx-auto my-auto">
           {cards.length < 4 ? (
@@ -312,7 +338,6 @@ export default function StudySession() {
               <p className="text-sm text-gray-400">クイズで遊ぶには、カード管理から単語を4枚以上追加してください！</p>
             </div>
           ) : quizIndex >= cards.length ? (
-            /* クイズ結果画面 */
             <div className={`w-full border p-8 rounded-3xl text-center shadow-md ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
               <div className="text-5xl mb-4">🏆</div>
               <h2 className="text-xl font-bold mb-2">テスト終了！</h2>
@@ -320,14 +345,12 @@ export default function StudySession() {
               <button onClick={startQuiz} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition text-sm shadow-sm">もう一度挑戦する</button>
             </div>
           ) : (
-            /* クイズ進行中画面 */
             <div className="w-full flex flex-col">
               <div className="mb-4 flex justify-between text-xs text-gray-400 font-medium">
                 <span>4択クイズモード</span>
                 <span>{quizIndex + 1} / {cards.length}問目</span>
               </div>
 
-              {/* クイズ問題表示エリア */}
               <div className={`w-full p-8 border rounded-3xl shadow-sm text-center mb-6 min-h-40 flex items-center justify-center ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-100'}`}>
                 <div>
                   <span className="text-[10px] font-bold tracking-wider text-gray-300 block mb-2">QUESTION</span>
@@ -335,7 +358,6 @@ export default function StudySession() {
                 </div>
               </div>
 
-              {/* 4つの選択肢ボタン */}
               <div className="flex flex-col gap-3 w-full">
                 {quizOptions.map((option, i) => {
                   const isSelected = quizSelected === option;
@@ -361,7 +383,7 @@ export default function StudySession() {
         </main>
       )}
 
-      {/* 3️⃣ DATABASE MODE (カード管理) */}
+      {/* 3️⃣ DATABASE MODE (編集機能追加パート) */}
       {activeTab === 'manage' && (
         <main className="flex-1 max-w-md w-full mx-auto p-4 overflow-y-auto max-h-[calc(100vh-140px)]">
           <div className={`border p-5 rounded-2xl shadow-sm mb-6 ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -379,15 +401,42 @@ export default function StudySession() {
             <h2 className="text-xs font-bold text-gray-400 mb-3 uppercase tracking-wider">登録済みのカード ({cards.length})</h2>
             <div className="flex flex-col gap-2">
               {cards.map((card) => (
-                <div key={card.id} className={`flex items-center justify-between p-3 border rounded-xl ${darkMode ? 'bg-gray-950 border-gray-900' : 'bg-gray-50 border-gray-100'}`}>
-                  <div className="flex-1 pr-2">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-xs">{card.front}</span>
-                      <span className={`text-[9px] border px-1.5 py-0.5 rounded-md font-medium ${darkMode ? 'bg-gray-900 border-gray-800 text-gray-400' : 'bg-white border-gray-200 text-gray-500'}`}>{card.category || '一般'}</span>
+                <div key={card.id} className={`p-3 border rounded-xl transition-all ${darkMode ? 'bg-gray-950 border-gray-900' : 'bg-gray-50 border-gray-100'}`}>
+                  
+                  {/* 📝 編集中の表示（インライン編集モード） */}
+                  {editingCardId === card.id ? (
+                    <div className="flex flex-col gap-2 mt-1">
+                      <span className="text-[10px] font-bold text-blue-500">✏️ カードを編集し中</span>
+                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className={`p-2 border rounded-lg text-xs ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`} placeholder="問題" />
+                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className={`p-2 border rounded-lg text-xs ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`} placeholder="答え" />
+                      <input type="text" value={editExample} onChange={(e) => setEditExample(e.target.value)} className={`p-2 border rounded-lg text-xs ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`} placeholder="例文" />
+                      <input type="text" value={editCategory} onChange={(e) => setEditCategory(e.target.value)} className={`p-2 border rounded-lg text-xs ${darkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'}`} placeholder="カテゴリ" />
+                      
+                      <div className="flex gap-2 justify-end mt-1">
+                        <button onClick={() => setEditingCardId(null)} className="px-3 py-1.5 text-xs font-medium text-gray-500 hover:text-gray-700">キャンセル</button>
+                        <button onClick={() => handleUpdateCard(card.id)} className="px-4 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-lg hover:bg-blue-700 shadow-sm">保存する</button>
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-0.5">{card.back}</div>
-                  </div>
-                  <button onClick={() => handleDeleteCard(card.id)} className="text-gray-400 hover:text-red-500 p-1.5 transition text-xs">🗑️</button>
+                  ) : (
+                    /* 📁 通常時の表示（ボタンに ✏️ 編集 を追加） */
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1 pr-2">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-xs">{card.front}</span>
+                          <span className={`text-[9px] border px-1.5 py-0.5 rounded-md font-medium ${darkMode ? 'bg-gray-900 border-gray-800 text-gray-400' : 'bg-white border-gray-200 text-gray-500'}`}>{card.category || '一般'}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 mt-0.5">{card.back}</div>
+                        {card.example && <div className="text-[11px] text-gray-400 italic mt-0.5">"{card.example}"</div>}
+                      </div>
+                      
+                      <div className="flex items-center gap-1">
+                        {/* ✏️ 編集を開始するボタン */}
+                        <button onClick={() => startEditing(card)} className="text-gray-400 hover:text-blue-500 p-1.5 transition text-xs" title="編集">✏️</button>
+                        <button onClick={() => handleDeleteCard(card.id)} className="text-gray-400 hover:text-red-500 p-1.5 transition text-xs" title="削除">🗑️</button>
+                      </div>
+                    </div>
+                  )}
+
                 </div>
               ))}
             </div>
@@ -395,7 +444,7 @@ export default function StudySession() {
         </main>
       )}
 
-      {/* 4️⃣ ANALYTICS DASHBOARD (学習分析) */}
+      {/* 4️⃣ ANALYTICS DASHBOARD */}
       {activeTab === 'dashboard' && (
         <main className="flex-1 max-w-md w-full mx-auto p-4 flex flex-col gap-4 justify-center">
           <div className={`border p-6 rounded-3xl text-center shadow-sm ${darkMode ? 'bg-gray-900 border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -435,7 +484,7 @@ export default function StudySession() {
 
       {/* フッター */}
       <footer className={`py-3 text-center text-[10px] text-gray-400 border-t transition-colors ${darkMode ? 'bg-gray-950 border-gray-900' : 'bg-white border-gray-200'}`}>
-        Flip-N アプリ v3.0 Ultimate // Powered by Nobuhiro System
+        Flip-N アプリ v3.5 Pro // Powered by Nobuhiro System
       </footer>
     </div>
   );
