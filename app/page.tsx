@@ -183,6 +183,19 @@ export default function UltimateStudyExperience() {
     } catch (e) { alert('追加に失敗しました'); }
   }
 
+  // ⭕ 消えていたカテゴリリストと定着率の計算を復活させました！
+  const uniqueCategories = Array.from(new Set(cards.map(c => c.category || '一般')));
+  const masteredCards = cards.filter(c => c.interval > 1).length;
+  const masterRate = cards.length > 0 ? Math.round((masteredCards / cards.length) * 100) : 0;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-900 text-slate-500 text-xs font-bold tracking-widest">
+        LOADING ULTIMATE EXPERIENCE...
+      </div>
+    );
+  }
+
   // ローディング
   if (loading) {
     return (
