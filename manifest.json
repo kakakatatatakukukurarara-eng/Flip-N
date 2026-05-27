@@ -1,0 +1,22 @@
+{
+  "theme_color": "#020617",
+  "background_color": "#020617",
+  "display": "standalone",
+  "scope": "/",
+  "start_url": "/",
+  "name": "FLIP-N PRO",
+  "short_name": "FLIP-N",
+  "description": "Sophisticated Flashcard App",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
