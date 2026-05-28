@@ -1,5 +1,6 @@
 "use client";
 
+import confetti from 'canvas-confetti'; // ← これを追加
 import React, { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
@@ -19,15 +20,57 @@ interface Card {
   user_id?: string;
 }
 
-// 🍏 みんなが使い始めたくなる「初期プリセットデータ」
-const PRESET_CARDS: Card[] = [
-  { id: -1, front: "Revolutionary", back: "革命的な", example: "This app offers a revolutionary learning experience.", category: "Business", interval: 1, next_review_at: "" },
-  { id: -2, front: "Sophisticated", back: "洗練された", example: "The interface design is highly sophisticated.", category: "Design", interval: 1, next_review_at: "" },
-  { id: -3, front: "Consistency", back: "一貫性・継続", example: "Consistency is the key to mastering a new language.", category: "Mindset", interval: 1, next_review_at: "" },
-  { id: -4, front: "Simplicity", back: "単純さ・簡潔さ", example: "Simplicity is the ultimate sophistication.", category: "Design", interval: 1, next_review_at: "" },
-];
+// 🍏 コース別プリセットデータ
+const COURSE_PRESETS = {
+  daily: [
+    { front: "It's up to you.", back: "あなた次第です。", example: "Where should we eat? It's up to you.", category: "Daily" },
+    { front: "I'm on my way.", back: "今向かっています。", example: "Sorry I'm late, I'm on my way.", category: "Daily" },
+    { front: "Make sense?", back: "意味わかる？（理解できた？）", example: "So we need to finish this by Friday. Make sense?", category: "Daily" },
+  ],
+  business: [
+    { front: "ASAP", back: "できるだけ早く", example: "Please send me the report ASAP.", category: "Business" },
+    { front: "FYI", back: "ご参考までに", example: "FYI, the meeting is postponed.", category: "Business" },
+    { front: "Align", back: "すり合わせる・連携する", example: "We need to align on the project goals.", category: "Business" },
+  ]
+};
 
 export default function UltimateStudyExperience() {
+  // 🎵 脳汁が出るサウンドエフェクト（Web Audio API）
+  const playSound = (type: 'correct' | 'wrong' | 'levelUp') => {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === 'correct') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime); // 高い音
+        osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        osc.start(); osc.stop(ctx.currentTime + 0.2);
+      } else if (type === 'wrong') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, ctx.currentTime); // ブブー音
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(); osc.stop(ctx.currentTime + 0.3);
+      }
+    } catch (e) {
+      console.log("Audio not supported");
+    }
+  };
+
+  // 📱 スマホの振動（Haptic Feedback）
+  const vibrate = (pattern: number | number[]) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  };
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,6 +91,13 @@ export default function UltimateStudyExperience() {
   // 音声分析
   const [isRecording, setIsRecording] = useState(false);
   const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
+
+  // 🍞 スタイリッシュなトースト通知用
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
+
+  // 📚 プリセット選択モーダル用
+  const [showCourseSelector, setShowCourseSelector] = useState(false);
 
   // 360度回転アニメーション用
   const x = useMotionValue(0);
@@ -76,6 +126,24 @@ export default function UltimateStudyExperience() {
   const [editExample, setEditExample] = useState('');
   const [editCategory, setEditCategory] = useState('');
 
+  // 共通のトースト通知発火関数
+  function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
+    setToastMessage(message);
+    setToastType(type);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 3000);
+  }
+
+  // PWA Service Workerの登録
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'Notification' in window) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => console.log('Service Worker registered:', registration))
+        .catch((error) => console.error('Service Worker registration failed:', error));
+    }
+  }, []);
+
   // 認証状態の監視
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -94,11 +162,11 @@ export default function UltimateStudyExperience() {
     fetchCards();
   }, [user]);
 
-  // データ読み込み（未ログイン時はプリセットを表示）
+  // データ読み込み（未ログイン時はプリセットの日常会話を表示）
   async function fetchCards() {
     setLoading(true);
     if (!user) {
-      setCards(PRESET_CARDS);
+      setCards(COURSE_PRESETS.daily.map((c, i) => ({ id: -i, ...c, interval: 1, next_review_at: "" })));
       setLoading(false);
       return;
     }
@@ -108,12 +176,9 @@ export default function UltimateStudyExperience() {
         .select('*')
         .order('next_review_at', { ascending: true });
       
-      // ユーザーのカードが0枚の時、自動でプリセットをインポートしてあげる親切設計
       if (data && data.length === 0) {
-        const initialData = PRESET_CARDS.map(({ id, ...rest }) => ({ ...rest, user_id: user.id }));
-        await supabase.from('cards').insert(initialData);
-        const { data: reFetched } = await supabase.from('cards').select('*').order('next_review_at', { ascending: true });
-        if (reFetched) setCards(reFetched);
+        setShowCourseSelector(true);
+        setCards([]);
       } else if (data) {
         setCards(data);
       }
@@ -121,6 +186,45 @@ export default function UltimateStudyExperience() {
       console.error(e);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // コース選択の登録処理
+  async function handleSelectCourse(courseType: 'daily' | 'business') {
+    if (!user) return;
+    const initialData = COURSE_PRESETS[courseType].map(card => ({
+      ...card,
+      user_id: user.id,
+      interval: 1,
+    }));
+    
+    try {
+      await supabase.from('cards').insert(initialData);
+      setShowCourseSelector(false);
+      showToast('コースのインポートが完了しました！', 'success');
+      fetchCards();
+    } catch (e) {
+      showToast('インポートに失敗しました。', 'error');
+    }
+  }
+
+  // 通知テストの発火
+  async function triggerTestNotification() {
+    if (!('Notification' in window)) {
+      showToast('このブラウザは通知をサポートしていません。', 'info');
+      return;
+    }
+    
+    const permission = await Notification.requestPermission();
+    if (permission === 'granted') {
+      navigator.serviceWorker.ready.then((registration) => {
+        registration.showNotification('FLIP-N PRO', {
+          body: '通知の設定が完了しました！ストリークを維持しましょう🔥',
+          icon: '/icon-192.png',
+        });
+      });
+    } else {
+      showToast('通知がブロックされています。設定から許可してください。', 'error');
     }
   }
 
@@ -159,17 +263,28 @@ export default function UltimateStudyExperience() {
     e.preventDefault();
     if (authMode === 'signup') {
       const { error } = await supabase.auth.signUp({ email, password });
-      if (error) alert(error.message);
-      else alert('Check your email for the confirmation link!');
+      if (error) showToast(error.message, 'error');
+      else showToast('アカウント確認メールを送信しました！', 'success');
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) alert(error.message);
+      if (error) showToast(error.message, 'error');
+      else showToast('サインインしました！', 'success');
     }
     setAuthMode(null);
   };
 
+  // 1-Click ログイン処理
+  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+    const { error } = await supabase.auth.signInWithOAuth({ 
+      provider,
+      options: { redirectTo: window.location.origin } 
+    });
+    if (error) showToast(error.message, 'error');
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    showToast('ログアウトしました', 'info');
     setActiveTab('study');
   };
 
@@ -240,9 +355,16 @@ export default function UltimateStudyExperience() {
     const isCorrect = option === cards[quizIndex].back;
     if (isCorrect) {
       setQuizScore(prev => prev + 1);
-      speak('Correct!');
+      playSound('correct'); // 🎵 サウンド追加
+      vibrate(50); // 📱 短く振動
+      
+      // もし最終問題で全問正解なら紙吹雪！
+      if (quizIndex + 1 === cards.length && quizScore + 1 === cards.length) {
+        setTimeout(() => confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }), 500);
+      }
     } else {
-      speak('Wrong');
+      playSound('wrong'); // 🎵 サウンド追加
+      vibrate([50, 100, 50]); // 📱 ブブッと2回振動
     }
 
     setTimeout(() => {
@@ -258,7 +380,7 @@ export default function UltimateStudyExperience() {
   // AI音声分析
   function startPronunciationAnalysis() {
     if (!('webkitSpeechRecognition' in window)) {
-      alert('Speech recognition is not supported in this browser. Please use Chrome.');
+      showToast('お使いのブラウザは音声認識をサポートしていません。Chromeを推奨します。', 'info');
       return;
     }
     setIsRecording(true);
@@ -287,10 +409,9 @@ export default function UltimateStudyExperience() {
     recognition.start();
   }
 
-  // レスポンス処理
+  // レンスポンス処理
   async function handleResponse(isCorrect: boolean) {
     if (!user) {
-      // 未ログイン時はローカルで進めるだけ
       setIsFlipped(false);
       setTimeout(() => { setCurrentIndex((prev) => prev + 1); }, 200);
       return;
@@ -311,7 +432,7 @@ export default function UltimateStudyExperience() {
   async function handleAddCard(e: React.FormEvent) {
     e.preventDefault();
     if (!user) {
-      alert('Please log in to add custom cards.');
+      showToast('カードを追加するにはログインが必要です。', 'info');
       return;
     }
     if (!newFront || !newBack) return;
@@ -321,10 +442,10 @@ export default function UltimateStudyExperience() {
       ]);
       if (!error) {
         setNewFront(''); setNewBack(''); setNewExample('');
-        alert('Card added successfully.');
+        showToast('カードを追加しました', 'success');
         fetchCards();
       }
-    } catch (e) { alert('Failed to add.'); }
+    } catch (e) { showToast('追加に失敗しました。', 'error'); }
   }
 
   function startEditing(card: Card) {
@@ -343,17 +464,19 @@ export default function UltimateStudyExperience() {
         .eq('id', id);
       if (!error) {
         setEditingCardId(null);
+        showToast('カードを更新しました', 'success');
         fetchCards();
       }
-    } catch (e) { alert('Failed to update.'); }
+    } catch (e) { showToast('更新に失敗しました。', 'error'); }
   }
 
   async function handleDeleteCard(id: number) {
-    if (!confirm('Delete this card?')) return;
+    if (!confirm('このカードを削除しますか？')) return;
     try {
       await supabase.from('cards').delete().eq('id', id);
+      showToast('カードを削除しました', 'success');
       fetchCards();
-    } catch (e) { alert('Failed to delete.'); }
+    } catch (e) { showToast('削除に失敗しました。', 'error'); }
   }
 
   const uniqueCategories = Array.from(new Set(cards.map(c => c.category || 'General')));
@@ -380,7 +503,7 @@ export default function UltimateStudyExperience() {
   return (
     <div className={`min-h-screen font-sans flex flex-col justify-between antialiased transition-colors duration-300 ${bgClass}`}>
       
-      {/* 🍏 ヘッダー */}
+      {/* ヘッダー */}
       <header className={`px-6 py-4 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
@@ -397,7 +520,6 @@ export default function UltimateStudyExperience() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* 🔐 認証状態表示・ボタン */}
             {user ? (
               <button onClick={handleLogout} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
             ) : (
@@ -446,6 +568,23 @@ export default function UltimateStudyExperience() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-2xl border max-w-sm w-full ${subContainerClass}`}>
             <h3 className="text-xs font-mono font-bold tracking-widest uppercase mb-4 text-slate-400">{authMode === 'login' ? 'Sign In Pro Account' : 'Create Pro Account'}</h3>
+            {/* ソーシャルログインボタン */}
+            <div className="flex flex-col gap-2 mb-4">
+              <button onClick={() => handleOAuthLogin('google')} className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition ${isDark ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+                <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+                Continue with Google
+              </button>
+              <button onClick={() => handleOAuthLogin('github')} className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition ${isDark ? 'bg-slate-800 text-white border-slate-700 hover:bg-slate-700' : 'bg-slate-100 text-slate-900 border-slate-200 hover:bg-slate-200'}`}>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                Continue with GitHub
+              </button>
+            </div>
+            
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`h-px flex-1 ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
+              <span className="text-[10px] font-mono text-slate-400">OR EMAIL</span>
+              <div className={`h-px flex-1 ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
+            </div>
             <form onSubmit={handleAuth} className="flex flex-col gap-3">
               <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Email address" className={`p-2.5 border rounded-xl text-xs outline-none ${inputBgClass}`} required />
               <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className={`p-2.5 border rounded-xl text-xs outline-none ${inputBgClass}`} required />
@@ -461,7 +600,28 @@ export default function UltimateStudyExperience() {
         </div>
       )}
 
-      {/* 📢 未ログインユーザーへのバナー案内 */}
+      {/* 📚 コース選択モーダル */}
+      {showCourseSelector && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className={`p-6 rounded-2xl border max-w-sm w-full text-center ${subContainerClass}`}>
+            <h3 className="text-sm font-mono font-bold tracking-widest uppercase mb-2 text-blue-500">Welcome to Pro</h3>
+            <p className="text-xs text-slate-400 mb-6 font-medium">最初の学習コースを選択してください。</p>
+            
+            <div className="flex flex-col gap-3">
+              <button onClick={() => handleSelectCourse('daily')} className={`p-4 border rounded-xl flex flex-col items-center gap-2 transition hover:border-blue-500 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                <span className="text-xl">☕️</span>
+                <span className="text-xs font-bold">日常英会話スタートダッシュ</span>
+              </button>
+              <button onClick={() => handleSelectCourse('business')} className={`p-4 border rounded-xl flex flex-col items-center gap-2 transition hover:border-blue-500 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
+                <span className="text-xl">💼</span>
+                <span className="text-xs font-bold">外資系ビジネス頻出ワード</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 未ログインユーザーへのバナー案内 */}
       {!user && (
         <div className="bg-blue-600/10 border-b border-blue-500/20 text-center py-2 text-[10px] font-mono font-bold tracking-wide text-blue-400 flex items-center justify-center gap-2">
           <span>💡 GUEST MODE: REGISTER AN ACCOUNT TO SAVE YOUR CUSTOM FLASHCARDS.</span>
@@ -653,7 +813,19 @@ export default function UltimateStudyExperience() {
       {/* 4️⃣ ANALYTICS DASHBOARD */}
       {activeTab === 'dashboard' && (
         <main className="flex-1 max-w-sm w-full mx-auto p-6 flex flex-col gap-4 justify-center">
-          <div className={`p-5 rounded-xl text-center border mb-4 ${subContainerClass}`}>
+          
+          {/* PWA通知有効化セクション */}
+          <div className={`p-4 rounded-xl text-center border ${subContainerClass}`}>
+            <h2 className="text-[10px] font-mono font-bold text-slate-400 mb-2 tracking-widest uppercase">Push Notifications</h2>
+            <button onClick={triggerTestNotification} className="w-full bg-slate-800 text-blue-400 border border-blue-500/30 font-bold py-2.5 rounded-xl text-xs tracking-wider flex items-center justify-center gap-2">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              ENABLE NOTIFICATIONS
+            </button>
+          </div>
+
+          <div className={`p-5 rounded-xl text-center border ${subContainerClass}`}>
             <h2 className="text-[10px] font-mono font-bold text-slate-400 mb-4 tracking-widest uppercase">Leaderboard Rankings</h2>
             <div className="flex flex-col gap-1.5 font-mono text-xs">
               {[ {rank: 1, name: user ? `YOU (${user.email.split('@')[0].toUpperCase()})` : 'GUEST USER', score: cards.length, isUser: true}, {rank: 2, name: 'AI_STUDENT', score: cards.length > 2 ? cards.length - 1 : 12, isUser: false}, {rank: 3, name: 'SAMPLE_USER', score: cards.length > 3 ? cards.length - 2 : 5, isUser: false} ].map((u, i) => (
@@ -692,6 +864,28 @@ export default function UltimateStudyExperience() {
       <footer className={`py-4 text-center text-[9px] border-t font-mono font-bold tracking-widest ${isDark ? 'bg-slate-900 border-slate-800 text-slate-600' : 'bg-white border-slate-200 text-slate-400'}`}>
         FLIP-N ULTIMATE // POWERED BY NOBUHIRO SYSTEM
       </footer>
+
+      {/* 🍞 トースト通知UI */}
+      {toastMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: 50, scale: 0.9 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: 20, scale: 0.9 }}
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${
+            toastType === 'error' 
+              ? 'bg-red-500/10 border-red-500/30 text-red-400' 
+              : toastType === 'success'
+              ? 'bg-green-500/10 border-green-500/30 text-green-400'
+              : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+          }`}
+        >
+          {toastType === 'error' && <span>⚠️</span>}
+          {toastType === 'success' && <span>✅</span>}
+          {toastType === 'info' && <span>💡</span>}
+          <span>{toastMessage.toUpperCase()}</span>
+        </motion.div>
+      )}
+
     </div>
   );
 }
