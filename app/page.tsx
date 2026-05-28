@@ -274,16 +274,23 @@ export default function UltimateStudyExperience() {
   };
 
   // 1-Click ログイン処理
-  // 1-Click ログイン処理
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
-    // Vercel本番URLを優先し、なければ現在のURLをリダイレクト先にする
-    const redirectUrl = process.env.NEXT_PUBLIC_VERCEL_URL 
-      ? `https://flip-n.vercel.app` 
-      : window.location.origin;
+    // 開発環境（localhostなど）か本番かをhost名で判定
+    const isLocal = typeof window !== 'undefined' && window.location.host.includes('localhost');
+    const isCodespace = typeof window !== 'undefined' && window.location.host.includes('github.dev');
+    
+    let redirectUrl = 'https://flip-n.vercel.app'; // デフォルトは本番
+    
+    // もしローカル環境やCodespaces環境なら、それぞれの現在のURLを戻り先にする
+    if (typeof window !== 'undefined' && (isLocal || isCodespace)) {
+      redirectUrl = `${window.location.protocol}//${window.location.host}`;
+    }
 
     const { error } = await supabase.auth.signInWithOAuth({ 
       provider,
-      options: { redirectTo: redirectUrl } 
+      options: { 
+        redirectTo: redirectUrl 
+      } 
     });
     if (error) showToast(error.message, 'error');
   };
