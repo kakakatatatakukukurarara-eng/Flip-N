@@ -1,9 +1,9 @@
 "use client";
 
-import confetti from 'canvas-confetti'; // ← これを追加
-import React, { useState, useEffect } from 'react';
+import confetti from 'canvas-confetti';
+import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { motion, useMotionValue, useTransform, AnimatePresence } from 'framer-motion';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -20,7 +20,14 @@ interface Card {
   user_id?: string;
 }
 
-// 🍏 コース別プリセットデータ
+// AIプレビュー用のテンポラリ型
+interface PreviewCard {
+  front: string;
+  back: string;
+  example: string;
+  category: string;
+}
+
 const COURSE_PRESETS = {
   daily: [
     { front: "It's up to you.", back: "あなた次第です。", example: "Where should we eat? It's up to you.", category: "Daily" },
@@ -35,42 +42,6 @@ const COURSE_PRESETS = {
 };
 
 export default function UltimateStudyExperience() {
-  // 🎵 脳汁が出るサウンドエフェクト（Web Audio API）
-  const playSound = (type: 'correct' | 'wrong' | 'levelUp') => {
-    if (typeof window === 'undefined') return;
-    try {
-      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      if (type === 'correct') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime); // 高い音
-        osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-        osc.start(); osc.stop(ctx.currentTime + 0.2);
-      } else if (type === 'wrong') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, ctx.currentTime); // ブブー音
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-        osc.start(); osc.stop(ctx.currentTime + 0.3);
-      }
-    } catch (e) {
-      console.log("Audio not supported");
-    }
-  };
-
-  // 📱 スマホの振動（Haptic Feedback）
-  const vibrate = (pattern: number | number[]) => {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(pattern);
-    }
-  };
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -92,14 +63,14 @@ export default function UltimateStudyExperience() {
   const [isRecording, setIsRecording] = useState(false);
   const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
 
-  // 🍞 スタイリッシュなトースト通知用
+  // トースト通知
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [toastType, setToastType] = useState<'success' | 'error' | 'info'>('info');
 
-  // 📚 プリセット選択モーダル用
+  // プリセット選択モーダル
   const [showCourseSelector, setShowCourseSelector] = useState(false);
 
-  // 360度回転アニメーション用
+  // カードアニメーション用
   const x = useMotionValue(0);
   const y = useMotionValue(0);
   const rotateX = useTransform(y, [-100, 100], [30, -30]);
@@ -119,6 +90,9 @@ export default function UltimateStudyExperience() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // フォーム用Ref
+  const frontInputRef = useRef<HTMLInputElement>(null);
+
   // 編集用
   const [editingCardId, setEditingCardId] = useState<number | null>(null);
   const [editFront, setEditFront] = useState('');
@@ -126,21 +100,59 @@ export default function UltimateStudyExperience() {
   const [editExample, setEditExample] = useState('');
   const [editCategory, setEditCategory] = useState('');
 
-  // 共通のトースト通知発火関数
+  // ✨ AI生成・プレビュー用新ステート
+  const [aiText, setAiText] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiPreviewCards, setAiPreviewCards] = useState<PreviewCard[]>([]);
+
+  // 🎵 サウンドエフェクト
+  const playSound = (type: 'correct' | 'wrong') => {
+    if (typeof window === 'undefined') return;
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      if (type === 'correct') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+        osc.start(); osc.stop(ctx.currentTime + 0.2);
+      } else if (type === 'wrong') {
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, ctx.currentTime);
+        gain.gain.setValueAtTime(0.1, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+        osc.start(); osc.stop(ctx.currentTime + 0.3);
+      }
+    } catch (e) {
+      console.log("Audio not supported");
+    }
+  };
+
+  const vibrate = (pattern: number | number[]) => {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  };
+
   function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
     setToastMessage(message);
     setToastType(type);
-    setTimeout(() => {
-      setToastMessage(null);
-    }, 3000);
+    setTimeout(() => setToastMessage(null), 3000);
   }
 
-  // PWA Service Workerの登録
+  // PWA Service Worker
   useEffect(() => {
     if ('serviceWorker' in navigator && 'Notification' in window) {
       navigator.serviceWorker.register('/sw.js')
-        .then((registration) => console.log('Service Worker registered:', registration))
-        .catch((error) => console.error('Service Worker registration failed:', error));
+        .then((reg) => console.log('Service Worker registered:', reg))
+        .catch((err) => console.error('Service Worker failed:', err));
     }
   }, []);
 
@@ -157,12 +169,10 @@ export default function UltimateStudyExperience() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // ユーザー状態が変わったらカードを再取得
   useEffect(() => {
     fetchCards();
   }, [user]);
 
-  // データ読み込み（未ログイン時はプリセットの日常会話を表示）
   async function fetchCards() {
     setLoading(true);
     if (!user) {
@@ -189,7 +199,25 @@ export default function UltimateStudyExperience() {
     }
   }
 
-  // コース選択の登録処理
+  // ショートカットキー設定
+  useEffect(() => {
+    if (activeTab !== 'study' || displayCards.length === 0 || currentIndex >= displayCards.length) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === ' ' || e.key === 'Spacebar') {
+        e.preventDefault();
+        setIsFlipped(prev => !prev);
+      } else if (e.key === 'ArrowRight' || e.key === 'l') {
+        handleResponse(true);
+      } else if (e.key === 'ArrowLeft' || e.key === 'h') {
+        handleResponse(false);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeTab, currentIndex, displayCards, isFlipped]);
+
   async function handleSelectCourse(courseType: 'daily' | 'business') {
     if (!user) return;
     const initialData = COURSE_PRESETS[courseType].map(card => ({
@@ -208,13 +236,11 @@ export default function UltimateStudyExperience() {
     }
   }
 
-  // 通知テストの発火
   async function triggerTestNotification() {
     if (!('Notification' in window)) {
       showToast('このブラウザは通知をサポートしていません。', 'info');
       return;
     }
-    
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
       navigator.serviceWorker.ready.then((registration) => {
@@ -224,11 +250,90 @@ export default function UltimateStudyExperience() {
         });
       });
     } else {
-      showToast('通知がブロックされています。設定から許可してください。', 'error');
+      showToast('通知がブロックされています。', 'error');
     }
   }
 
-  // ストリーク計算・テーマ読み込み
+  // ⚡️ 修正ポイント：AI生成時に即座に保存せず、プレビューデータを生成する
+  async function handleGenerateAI() {
+    if (!user) { showToast('カードを生成するにはログインが必要です。', 'info'); return; }
+    if (!aiText.trim()) { showToast('テキストを入力してください。', 'error'); return; }
+
+    setIsGenerating(true);
+    showToast('✨ AIが解析中...', 'info');
+
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: aiText, category: 'AI Generated' })
+      });
+      const data = await res.json();
+
+      if (data.cards && Array.isArray(data.cards)) {
+        // 直接データベースに入れず、ステートに保持してプレビューを表示
+        const formatted: PreviewCard[] = data.cards.map((c: any) => ({
+          front: c.front || '',
+          back: c.back || '',
+          example: c.example || '',
+          category: c.category || 'AI Generated'
+        }));
+        setAiPreviewCards(formatted);
+        showToast('✨ プレビュー画面が出現しました！', 'success');
+      } else {
+        showToast('生成処理が失敗しました。', 'error');
+      }
+    } catch (e) {
+      showToast('エラーが発生しました。', 'error');
+    } finally {
+      setIsGenerating(false);
+    }
+  }
+
+  // ⚡️ プレビュー中のリアルタイム入力更新
+  const handleUpdatePreviewField = (index: number, field: keyof PreviewCard, value: string) => {
+    const updated = [...aiPreviewCards];
+    updated[index][field] = value;
+    setAiPreviewCards(updated);
+  };
+
+  // ⚡️ プレビュー中の除外処理 [❌ EXCLUDE]
+  const handleExcludePreviewCard = (index: number) => {
+    setAiPreviewCards(prev => prev.filter((_, i) => i !== index));
+    showToast('カードを除外しました', 'info');
+  };
+
+  // ⚡️ 確定保存処理 [Confirm & Save]
+  async function handleConfirmAndSaveAI() {
+    if (aiPreviewCards.length === 0) return;
+    showToast('🚀 データベースへ一発保存中...', 'info');
+
+    const cardsToInsert = aiPreviewCards.map(c => ({
+      front: c.front.trim(),
+      back: c.back.trim(),
+      example: c.example.trim() || null,
+      category: c.category.trim() || 'AI Generated',
+      user_id: user.id,
+      interval: 1
+    }));
+
+    try {
+      const { error } = await supabase.from('cards').insert(cardsToInsert);
+      if (!error) {
+        showToast(`✅ ${cardsToInsert.length}枚のカードを保存しました！`, 'success');
+        setAiPreviewCards([]);
+        setAiText('');
+        fetchCards();
+        setTimeout(() => confetti({ particleCount: 100, spread: 60 }), 300);
+      } else {
+        showToast('データベースへの保存に失敗しました。', 'error');
+      }
+    } catch (e) {
+      showToast('保存エラーが発生しました。', 'error');
+    }
+  }
+
+  // ストリーク計算
   useEffect(() => {
     const today = new Date().toDateString();
     const lastLogin = localStorage.getItem('last_login_date');
@@ -247,9 +352,7 @@ export default function UltimateStudyExperience() {
     }
 
     const savedTheme = localStorage.getItem('user_theme');
-    if (savedTheme === 'light' || savedTheme === 'dark') {
-      setTheme(savedTheme as any);
-    }
+    if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme as any);
   }, []);
 
   const toggleTheme = () => {
@@ -258,7 +361,6 @@ export default function UltimateStudyExperience() {
     localStorage.setItem('user_theme', nextTheme);
   };
 
-  // 認証処理
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     if (authMode === 'signup') {
@@ -273,24 +375,17 @@ export default function UltimateStudyExperience() {
     setAuthMode(null);
   };
 
-  // 1-Click ログイン処理
   const handleOAuthLogin = async (provider: 'google' | 'github') => {
-    // 開発環境（localhostなど）か本番かをhost名で判定
-    const isLocal = typeof window !== 'undefined' && window.location.host.includes('localhost');
-    const isCodespace = typeof window !== 'undefined' && window.location.host.includes('github.dev');
-    
-    let redirectUrl = 'https://flip-n.vercel.app'; // デフォルトは本番
-    
-    // もしローカル環境やCodespaces環境なら、それぞれの現在のURLを戻り先にする
-    if (typeof window !== 'undefined' && (isLocal || isCodespace)) {
-      redirectUrl = `${window.location.protocol}//${window.location.host}`;
+    let redirectUrl = 'https://flip-n.vercel.app';
+    if (typeof window !== 'undefined') {
+      const host = window.location.host;
+      if (host.includes('localhost') || host.includes('github.dev')) {
+        redirectUrl = `${window.location.protocol}//${host}`;
+      }
     }
-
     const { error } = await supabase.auth.signInWithOAuth({ 
       provider,
-      options: { 
-        redirectTo: redirectUrl 
-      } 
+      options: { redirectTo: redirectUrl } 
     });
     if (error) showToast(error.message, 'error');
   };
@@ -301,7 +396,7 @@ export default function UltimateStudyExperience() {
     setActiveTab('study');
   };
 
-  // レベルと称号の計算
+  // レベル計算
   useEffect(() => {
     const totalMastered = cards.filter(c => c.interval > 1).length;
     const newLevel = Math.floor(totalMastered / 5) + 1;
@@ -312,7 +407,7 @@ export default function UltimateStudyExperience() {
     else setTitle('BEGINNER');
   }, [cards]);
 
-  // フィルター・検索
+  // フィルター処理
   useEffect(() => {
     let result = cards.filter(card => {
       const matchesCategory = selectedCategory === 'All' || card.category === selectedCategory;
@@ -325,7 +420,6 @@ export default function UltimateStudyExperience() {
     setIsFlipped(false);
   }, [cards, selectedCategory, searchQuery]);
 
-  // 音声読み上げ
   function speak(text: string) {
     if ('speechSynthesis' in window) {
       const utterance = new SpeechSynthesisUtterance(text);
@@ -335,7 +429,7 @@ export default function UltimateStudyExperience() {
     }
   }
 
-  // 4択テスト用問題作成
+  // 4択クイズ
   function startQuiz() {
     if (cards.length < 4) return;
     setQuizIndex(0);
@@ -368,16 +462,14 @@ export default function UltimateStudyExperience() {
     const isCorrect = option === cards[quizIndex].back;
     if (isCorrect) {
       setQuizScore(prev => prev + 1);
-      playSound('correct'); // 🎵 サウンド追加
-      vibrate(50); // 📱 短く振動
-      
-      // もし最終問題で全問正解なら紙吹雪！
+      playSound('correct');
+      vibrate(50);
       if (quizIndex + 1 === cards.length && quizScore + 1 === cards.length) {
         setTimeout(() => confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }), 500);
       }
     } else {
-      playSound('wrong'); // 🎵 サウンド追加
-      vibrate([50, 100, 50]); // 📱 ブブッと2回振動
+      playSound('wrong');
+      vibrate([50, 100, 50]);
     }
 
     setTimeout(() => {
@@ -390,10 +482,9 @@ export default function UltimateStudyExperience() {
     }, 1200);
   }
 
-  // AI音声分析
   function startPronunciationAnalysis() {
     if (!('webkitSpeechRecognition' in window)) {
-      showToast('お使いのブラウザは音声認識をサポートしていません。Chromeを推奨します。', 'info');
+      showToast('音声認識未対応ブラウザです。', 'info');
       return;
     }
     setIsRecording(true);
@@ -407,22 +498,19 @@ export default function UltimateStudyExperience() {
       const speechToText = event.results[0][0].transcript;
       const targetWord = displayCards[currentIndex].front;
       if (speechToText.toLowerCase() === targetWord.toLowerCase()) {
-        const score = Math.floor(Math.random() * 10) + 90;
-        setPronunciationScore(score);
+        setPronunciationScore(Math.floor(Math.random() * 10) + 90);
         speak('Excellent!');
       } else {
-        const score = Math.floor(Math.random() * 20) + 60;
-        setPronunciationScore(score);
+        setPronunciationScore(Math.floor(Math.random() * 20) + 60);
         speak('Try again.');
       }
     };
 
-    recognition.onerror = () => { setIsRecording(false); };
-    recognition.onend = () => { setIsRecording(false); };
+    recognition.onerror = () => setIsRecording(false);
+    recognition.onend = () => setIsRecording(false);
     recognition.start();
   }
 
-  // レンスポンス処理
   async function handleResponse(isCorrect: boolean) {
     if (!user) {
       setIsFlipped(false);
@@ -441,22 +529,31 @@ export default function UltimateStudyExperience() {
     setTimeout(() => { setCurrentIndex((prev) => prev + 1); }, 200);
   }
 
-  // カード追加
   async function handleAddCard(e: React.FormEvent) {
     e.preventDefault();
-    if (!user) {
-      showToast('カードを追加するにはログインが必要です。', 'info');
-      return;
-    }
-    if (!newFront || !newBack) return;
+    if (!user) { showToast('カードを追加するにはログインが必要です。', 'info'); return; }
+    
+    const trimmedFront = newFront.trim();
+    const trimmedBack = newBack.trim();
+    if (!trimmedFront || !trimmedBack) return;
+
     try {
       const { error } = await supabase.from('cards').insert([
-        { front: newFront, back: newBack, example: newExample || null, category: newCategory, user_id: user.id }
+        { 
+          front: trimmedFront, 
+          back: trimmedBack, 
+          example: newExample.trim() || null, 
+          category: newCategory.trim() || 'General', 
+          user_id: user.id 
+        }
       ]);
       if (!error) {
-        setNewFront(''); setNewBack(''); setNewExample('');
+        setNewFront(''); 
+        setNewBack(''); 
+        setNewExample('');
         showToast('カードを追加しました', 'success');
         fetchCards();
+        frontInputRef.current?.focus();
       }
     } catch (e) { showToast('追加に失敗しました。', 'error'); }
   }
@@ -473,7 +570,7 @@ export default function UltimateStudyExperience() {
     try {
       const { error } = await supabase
         .from('cards')
-        .update({ front: editFront, back: editBack, example: editExample || null, category: editCategory })
+        .update({ front: editFront.trim(), back: editBack.trim(), example: editExample.trim() || null, category: editCategory.trim() })
         .eq('id', id);
       if (!error) {
         setEditingCardId(null);
@@ -496,7 +593,6 @@ export default function UltimateStudyExperience() {
   const masteredCards = cards.filter(c => c.interval > 1).length;
   const masterRate = cards.length > 0 ? Math.round((masteredCards / cards.length) * 100) : 0;
 
-  // カラー定義
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800';
   const headerClass = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
@@ -518,7 +614,7 @@ export default function UltimateStudyExperience() {
       
       {/* ヘッダー */}
       <header className={`px-6 py-4 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between w-full md:w-auto">
           <div className="flex items-center gap-4">
             <span className={`text-base font-black tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               FLIP-N <span className="text-blue-500">PRO</span>
@@ -532,58 +628,60 @@ export default function UltimateStudyExperience() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 md:hidden">
             {user ? (
               <button onClick={handleLogout} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
             ) : (
-              <div className="flex gap-1.5">
-                <button onClick={() => setAuthMode('login')} className="text-[10px] font-mono border rounded px-2.5 py-1.5 bg-blue-600 text-white border-blue-600">SIGN IN</button>
-              </div>
+              <button onClick={() => setAuthMode('login')} className="text-[10px] font-mono border rounded px-2.5 py-1.5 bg-blue-600 text-white border-blue-600">SIGN IN</button>
             )}
-
-            <button 
-              onClick={toggleTheme} 
-              className={`p-2 rounded-lg transition-all border flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}
-            >
-              {isDark ? (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" /></svg>
-              ) : (
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
-              )}
+            <button onClick={toggleTheme} className={`p-2 rounded-lg border flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+              {isDark ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
             </button>
           </div>
         </div>
         
-        <div className="flex items-center gap-2 text-[10px] font-mono tracking-wider">
+        <div className="hidden md:flex items-center gap-2 text-[10px] font-mono tracking-wider">
           <span className="text-blue-500 font-bold">LV.{level}</span>
           <span className="text-slate-400">|</span>
           <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{title}</span>
         </div>
 
         {/* ナビゲーション */}
-        <nav className={`flex p-1 rounded-xl border overflow-x-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
-          {[
-            { id: 'study', label: 'STUDY', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg> },
-            { id: 'test', label: 'TEST', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-            { id: 'manage', label: 'MANAGE', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-            { id: 'dashboard', label: 'ANALYTICS', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2zm12 0v-11a2 2 0 00-2-2h-2a2 2 0 00-2 2v11a2 2 0 002 2h2a2 2 0 002-2z" /></svg> }
-          ].map(tab => (
-            <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.id ? (isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-blue-600 shadow-xs') : (isDark ? 'text-slate-500 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}>
-              {tab.icon}
-              <span>{tab.label}</span>
+        <div className="flex items-center justify-between gap-4 w-full md:w-auto">
+          <nav className={`flex p-1 rounded-xl border overflow-x-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
+            {[
+              { id: 'study', label: 'STUDY', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg> },
+              { id: 'test', label: 'TEST', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+              { id: 'manage', label: 'MANAGE', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
+              { id: 'dashboard', label: 'ANALYTICS', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2zm12 0v-11a2 2 0 00-2-2h-2a2 2 0 00-2 2v11a2 2 0 002 2h2a2 2 0 002-2z" /></svg> }
+            ].map(tab => (
+              <button key={tab.id} onClick={() => setActiveTab(tab.id as any)} className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.id ? (isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-blue-600 shadow-xs') : (isDark ? 'text-slate-500 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}>
+                {tab.icon}
+                <span>{tab.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="hidden md:flex items-center gap-2">
+            {user ? (
+              <button onClick={handleLogout} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
+            ) : (
+              <button onClick={() => setAuthMode('login')} className="text-[10px] font-mono border rounded px-2.5 py-1.5 bg-blue-600 text-white border-blue-600">SIGN IN</button>
+            )}
+            <button onClick={toggleTheme} className={`p-2 rounded-lg border flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
+              {isDark ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
             </button>
-          ))}
-        </nav>
+          </div>
+        </div>
       </header>
 
-      {/* 🔐 認証モーダルポップアップ */}
+      {/* 🔐 認証モーダル */}
       {authMode && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-2xl border max-w-sm w-full ${subContainerClass}`}>
             <h3 className="text-xs font-mono font-bold tracking-widest uppercase mb-4 text-slate-400">{authMode === 'login' ? 'Sign In Pro Account' : 'Create Pro Account'}</h3>
-            {/* ソーシャルログインボタン */}
             <div className="flex flex-col gap-2 mb-4">
-              <button onClick={() => handleOAuthLogin('google')} className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border transition ${isDark ? 'bg-white text-black hover:bg-slate-200' : 'bg-slate-900 text-white hover:bg-slate-800'}`}>
+              <button onClick={() => handleOAuthLogin('google')} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border bg-white text-black hover:bg-slate-200 transition">
                 <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
                 Continue with Google
               </button>
@@ -592,7 +690,6 @@ export default function UltimateStudyExperience() {
                 Continue with GitHub
               </button>
             </div>
-            
             <div className="flex items-center gap-3 mb-4">
               <div className={`h-px flex-1 ${isDark ? 'bg-slate-800' : 'bg-slate-200'}`}></div>
               <span className="text-[10px] font-mono text-slate-400">OR EMAIL</span>
@@ -613,13 +710,12 @@ export default function UltimateStudyExperience() {
         </div>
       )}
 
-      {/* 📚 コース選択モーダル */}
+      {/* コース選択モーダル */}
       {showCourseSelector && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-2xl border max-w-sm w-full text-center ${subContainerClass}`}>
             <h3 className="text-sm font-mono font-bold tracking-widest uppercase mb-2 text-blue-500">Welcome to Pro</h3>
             <p className="text-xs text-slate-400 mb-6 font-medium">最初の学習コースを選択してください。</p>
-            
             <div className="flex flex-col gap-3">
               <button onClick={() => handleSelectCourse('daily')} className={`p-4 border rounded-xl flex flex-col items-center gap-2 transition hover:border-blue-500 ${isDark ? 'bg-slate-800' : 'bg-slate-50'}`}>
                 <span className="text-xl">☕️</span>
@@ -634,7 +730,6 @@ export default function UltimateStudyExperience() {
         </div>
       )}
 
-      {/* 未ログインユーザーへのバナー案内 */}
       {!user && (
         <div className="bg-blue-600/10 border-b border-blue-500/20 text-center py-2 text-[10px] font-mono font-bold tracking-wide text-blue-400 flex items-center justify-center gap-2">
           <span>💡 GUEST MODE: REGISTER AN ACCOUNT TO SAVE YOUR CUSTOM FLASHCARDS.</span>
@@ -680,7 +775,7 @@ export default function UltimateStudyExperience() {
                 >
                   <div className={`absolute inset-0 w-full h-full p-6 rounded-xl border flex flex-col items-center justify-center backface-visibility-hidden ${cardClass} ${isFlipped ? 'opacity-0' : 'opacity-100'}`}>
                     <h1 className="text-2xl font-bold tracking-wide">{displayCards[currentIndex].front}</h1>
-                    <span className={`text-[9px] font-mono tracking-widest mt-6 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>DRAG OR TAP TO FLIP</span>
+                    <span className={`text-[9px] font-mono tracking-widest mt-6 ${isDark ? 'text-slate-600' : 'text-slate-300'}`}>DRAG, TAP OR SPACE TO FLIP</span>
                   </div>
                   <div className={`absolute inset-0 w-full h-full p-6 rounded-xl border flex flex-col items-center justify-center [transform:rotateY(180deg)] backface-visibility-hidden ${cardClass} ${isFlipped ? 'opacity-100' : 'opacity-0'}`}>
                     <h2 className="text-xl font-bold text-blue-500 mb-3 tracking-wide">{displayCards[currentIndex].back}</h2>
@@ -705,8 +800,8 @@ export default function UltimateStudyExperience() {
               </div>
 
               <div className="w-full mt-4 grid grid-cols-2 gap-3">
-                <button onClick={() => handleResponse(false)} className={`font-mono font-bold py-2.5 rounded text-[11px] tracking-widest border uppercase ${isDark ? 'bg-slate-900 border-slate-800 text-red-400' : 'bg-white border-slate-200 text-red-500 shadow-xs'}`}>AGAIN</button>
-                <button onClick={() => handleResponse(true)} className="bg-blue-600 text-white font-mono font-bold py-2.5 rounded text-[11px] tracking-widest uppercase shadow-xs">GOOD</button>
+                <button onClick={() => handleResponse(false)} className={`font-mono font-bold py-2.5 rounded text-[11px] tracking-widest border uppercase ${isDark ? 'bg-slate-900 border-slate-800 text-red-400' : 'bg-white border-slate-200 text-red-500 shadow-xs'}`}>AGAIN (←)</button>
+                <button onClick={() => handleResponse(true)} className="bg-blue-600 text-white font-mono font-bold py-2.5 rounded text-[11px] tracking-widest uppercase shadow-xs">GOOD (→)</button>
               </div>
             </>
           )}
@@ -772,10 +867,111 @@ export default function UltimateStudyExperience() {
             </div>
           ) : (
             <>
+              {/* AI 生成セクション */}
+              <div className={`p-4 rounded-xl border mb-5 ${subContainerClass}`}>
+                <h2 className="text-[10px] font-mono font-bold tracking-wider uppercase mb-3 text-blue-500 flex items-center gap-1">
+                  <span>✨</span> AI INSTANT GENERATOR
+                </h2>
+                <div className="flex flex-col gap-2.5">
+                  <textarea 
+                    value={aiText} 
+                    onChange={(e) => setAiText(e.target.value)} 
+                    placeholder="英語のニュースや長文をコピペしてください。重要単語を一瞬で抽出してカード化します。" 
+                    className={`w-full p-3 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium min-h-[80px] resize-none ${inputBgClass}`} 
+                  />
+                  <button onClick={handleGenerateAI} disabled={isGenerating} className={`w-full font-bold py-2.5 rounded text-xs mt-1 tracking-wider flex items-center justify-center gap-2 transition disabled:opacity-50 ${isDark ? 'bg-slate-800 text-blue-400 border border-blue-500/30 hover:bg-slate-700' : 'bg-blue-50 text-blue-600 border border-blue-200 hover:bg-blue-100'}`}>
+                    {isGenerating ? <span className="animate-pulse">EXTRACTING CARDS...</span> : <><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>GENERATE INSTANTLY</>}
+                  </button>
+                </div>
+              </div>
+
+              {/* ⚡️ 追加ポイント：スタイリッシュな AI PREVIEW 画面 */}
+              <AnimatePresence>
+                {aiPreviewCards.length > 0 && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className={`p-4 rounded-xl border-2 border-dashed border-blue-500/40 mb-5 relative overflow-hidden ${subContainerClass}`}
+                  >
+                    <div className="absolute top-0 right-0 bg-blue-500 text-white font-mono text-[9px] font-black tracking-widest px-3 py-1 rounded-bl-lg uppercase animate-pulse">
+                      PREVIEW
+                    </div>
+                    <h2 className="text-[10px] font-mono font-bold tracking-wider uppercase mb-1 text-slate-400">AI Generated Drafts</h2>
+                    <p className="text-[9px] text-slate-500 font-medium mb-3">保存前に手直しや不要な単語の除外が可能です。</p>
+                    
+                    <div className="flex flex-col gap-3">
+                      {aiPreviewCards.map((pCard, idx) => (
+                        <div key={idx} className={`p-3 border rounded-xl relative ${innerBoxClass}`}>
+                          {/* ❌ EXCLUDE ボタン */}
+                          <button 
+                            type="button" 
+                            onClick={() => handleExcludePreviewCard(idx)}
+                            className="absolute top-2 right-2 text-[9px] font-mono font-bold text-red-400 hover:text-red-500 px-1.5 py-0.5 rounded border border-red-500/20 bg-red-500/5 transition"
+                          >
+                            ❌ EXCLUDE
+                          </button>
+                          
+                          <div className="flex flex-col gap-1.5 mt-2">
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[8px] font-mono text-slate-500 font-bold block mb-0.5">WORD</label>
+                                <input 
+                                  type="text" 
+                                  value={pCard.front} 
+                                  onChange={(e) => handleUpdatePreviewField(idx, 'front', e.target.value)}
+                                  className={`w-full p-2 border rounded-lg text-xs outline-none focus:border-blue-500 font-bold ${inputBgClass}`}
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[8px] font-mono text-slate-500 font-bold block mb-0.5">MEANING</label>
+                                <input 
+                                  type="text" 
+                                  value={pCard.back} 
+                                  onChange={(e) => handleUpdatePreviewField(idx, 'back', e.target.value)}
+                                  className={`w-full p-2 border rounded-lg text-xs outline-none focus:border-blue-500 font-bold text-blue-500 ${inputBgClass}`}
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="text-[8px] font-mono text-slate-500 font-bold block mb-0.5">EXAMPLE SENTENCE</label>
+                              <input 
+                                type="text" 
+                                value={pCard.example} 
+                                onChange={(e) => handleUpdatePreviewField(idx, 'example', e.target.value)}
+                                className={`w-full p-2 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium italic ${inputBgClass}`}
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      <button 
+                        type="button" 
+                        onClick={() => { setAiPreviewCards([]); showToast('プレビューを破棄しました', 'info'); }}
+                        className={`font-mono font-bold py-2 rounded text-[10px] tracking-widest border uppercase ${isDark ? 'border-slate-800 text-slate-500' : 'border-slate-200 text-slate-400'}`}
+                      >
+                        DISCARD ALL
+                      </button>
+                      <button 
+                        type="button" 
+                        onClick={handleConfirmAndSaveAI}
+                        className="bg-blue-600 text-white font-mono font-bold py-2 rounded text-[10px] tracking-widest uppercase shadow-md animate-bounce"
+                      >
+                        🚀 Confirm & Save
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* 手動追加フォーム */}
               <div className={`p-4 rounded-xl border mb-5 ${subContainerClass}`}>
                 <h2 className="text-[10px] font-mono font-bold tracking-wider uppercase mb-3 text-slate-400">Add New Card</h2>
                 <form onSubmit={handleAddCard} className="flex flex-col gap-2.5">
-                  <input type="text" value={newFront} onChange={(e) => setNewFront(e.target.value)} placeholder="Word / Phrase" className={`w-full p-2.5 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium ${inputBgClass}`} required />
+                  <input ref={frontInputRef} type="text" value={newFront} onChange={(e) => setNewFront(e.target.value)} placeholder="Word / Phrase" className={`w-full p-2.5 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium ${inputBgClass}`} required />
                   <input type="text" value={newBack} onChange={(e) => setNewBack(e.target.value)} placeholder="Meaning" className={`w-full p-2.5 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium ${inputBgClass}`} required />
                   <input type="text" value={newExample} onChange={(e) => setNewExample(e.target.value)} placeholder="Example sentence (optional)" className={`w-full p-2.5 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium ${inputBgClass}`} />
                   <input type="text" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} placeholder="Category" className={`w-full p-2.5 border rounded-lg text-xs outline-none focus:border-blue-500 font-medium ${inputBgClass}`} />
@@ -783,6 +979,7 @@ export default function UltimateStudyExperience() {
                 </form>
               </div>
 
+              {/* カード一覧 */}
               <div className={`p-4 rounded-xl border ${subContainerClass}`}>
                 <h2 className="text-[10px] font-mono font-bold text-slate-400 mb-3 uppercase tracking-wider">Registered Cards ({cards.length})</h2>
                 <div className="flex flex-col gap-2">
@@ -826,14 +1023,10 @@ export default function UltimateStudyExperience() {
       {/* 4️⃣ ANALYTICS DASHBOARD */}
       {activeTab === 'dashboard' && (
         <main className="flex-1 max-w-sm w-full mx-auto p-6 flex flex-col gap-4 justify-center">
-          
-          {/* PWA通知有効化セクション */}
           <div className={`p-4 rounded-xl text-center border ${subContainerClass}`}>
             <h2 className="text-[10px] font-mono font-bold text-slate-400 mb-2 tracking-widest uppercase">Push Notifications</h2>
             <button onClick={triggerTestNotification} className="w-full bg-slate-800 text-blue-400 border border-blue-500/30 font-bold py-2.5 rounded-xl text-xs tracking-wider flex items-center justify-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-              </svg>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
               ENABLE NOTIFICATIONS
             </button>
           </div>
@@ -841,7 +1034,11 @@ export default function UltimateStudyExperience() {
           <div className={`p-5 rounded-xl text-center border ${subContainerClass}`}>
             <h2 className="text-[10px] font-mono font-bold text-slate-400 mb-4 tracking-widest uppercase">Leaderboard Rankings</h2>
             <div className="flex flex-col gap-1.5 font-mono text-xs">
-              {[ {rank: 1, name: user ? `YOU (${user.email.split('@')[0].toUpperCase()})` : 'GUEST USER', score: cards.length, isUser: true}, {rank: 2, name: 'AI_STUDENT', score: cards.length > 2 ? cards.length - 1 : 12, isUser: false}, {rank: 3, name: 'SAMPLE_USER', score: cards.length > 3 ? cards.length - 2 : 5, isUser: false} ].map((u, i) => (
+              {[
+                { rank: 1, name: user ? `YOU (${user.email.split('@')[0].toUpperCase()})` : 'GUEST USER', score: cards.length, isUser: true },
+                { rank: 2, name: 'AI_STUDENT', score: cards.length > 2 ? cards.length - 1 : 12, isUser: false },
+                { rank: 3, name: 'SAMPLE_USER', score: cards.length > 3 ? cards.length - 2 : 5, isUser: false }
+              ].map((u, i) => (
                 <div key={i} className={`p-2 rounded flex items-center justify-between font-bold ${u.isUser ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' : (isDark ? 'bg-slate-800 text-slate-500' : 'bg-slate-100 text-slate-400')}`}>
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-black">0{u.rank}</span>
@@ -878,18 +1075,14 @@ export default function UltimateStudyExperience() {
         FLIP-N ULTIMATE // POWERED BY NOBUHIRO SYSTEM
       </footer>
 
-      {/* 🍞 トースト通知UI */}
+      {/* トースト通知 */}
       {toastMessage && (
         <motion.div
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.9 }}
           className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${
-            toastType === 'error' 
-              ? 'bg-red-500/10 border-red-500/30 text-red-400' 
-              : toastType === 'success'
-              ? 'bg-green-500/10 border-green-500/30 text-green-400'
-              : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+            toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
           }`}
         >
           {toastType === 'error' && <span>⚠️</span>}
