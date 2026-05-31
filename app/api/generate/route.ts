@@ -101,14 +101,14 @@ export async function POST(req: Request) {
       const longerWords = inputWords.filter((w: string) => w.length >= 5 && !['about', 'their', 'there', 'would', 'could', 'which'].includes(w));
       const uniqueLongerWords = Array.from(new Set(longerWords)).slice(0, 3);
 
-      for (const word of uniqueLongerWords) {
-        generatedCards.push({
-          front: word.charAt(0).toUpperCase() + word.slice(1),
-          back: "【自動抽出】意味を記述...",
-          example: `Check how "${word}" appears in the text.`,
-          category: category || 'AI Generated'
-        });
-      }
+      for (const word of uniqueLongerWords as string[]) { // 👈 「as string[]」を付け足す
+  generatedCards.push({
+    front: word.charAt(0).toUpperCase() + word.slice(1),
+    back: "【自動抽出】意味を記述...",
+    example: `Check how "${word}" appears in the text.`,
+    category: category || 'AI Generated'
+  });
+}
     }
 
     // 演出用のウェイト
