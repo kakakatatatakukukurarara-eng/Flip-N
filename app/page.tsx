@@ -4,6 +4,7 @@ import confetti from 'canvas-confetti';
 import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
+import { createWorker } from 'tesseract.js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -79,7 +80,7 @@ export default function UltimateStudyExperience() {
   const [quizOptions, setQuizOptions] = useState<string[]>([]);
   const [quizScore, setQuizScore] = useState(0);
   const [quizSelected, setQuizSelected] = useState<string | null>(null);
-  
+
   const [newFront, setNewFront] = useState('');
   const [newBack, setNewBack] = useState('');
   const [newExample, setNewExample] = useState('');
@@ -100,6 +101,9 @@ export default function UltimateStudyExperience() {
   const [aiText, setAiText] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [aiPreviewCards, setAiPreviewCards] = useState<PreviewCard[]>([]);
+
+  const [isProcessingImage, setIsProcessingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const playSound = (type: 'correct' | 'wrong') => {
     if (typeof window === 'undefined') return;
@@ -127,6 +131,55 @@ export default function UltimateStudyExperience() {
       }
     } catch (e) {
       console.log("Audio not supported");
+    }
+  };
+
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessingImage(true);
+    showToast("⏳ 画像をスキャンして文字を抽出中...", "info");
+
+    try {
+      // ユーザーのデバイス（スマホやPC）の頭脳を使って、その場で英語を読み取る
+      const worker = await createWorker('eng');
+      const { data: { text } } = await worker.recognize(file);
+      await worker.terminate();
+
+      if (!text || text.trim().length < 3) {
+        showToast("文字を検出できませんでした。はっきり写してください。", "error");
+        setIsProcessingImage(false);
+        return;
+      }
+
+      showToast("📝 英語の抽出に成功！AI単語カードを生成中...", "info");
+
+      // 💡 すでにFLIP-Nにある既存の「/api/generate」にテキストをそのまま流し込む！
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          text: text, // カメラが読み取った英語テキスト
+          category: activeCategory || 'Camera Scan'
+        }),
+      });
+
+      if (!response.ok) throw new Error("単語カードの生成に失敗しました");
+
+      const data = await response.json();
+
+      if (data.cards && data.cards.length > 0) {
+        setPreviewCards(data.cards);
+        showToast(`📸 ${data.cards.length}個の単語をカメラから保存しました！`, "success");
+      } else {
+        showToast("辞書にマッチする単語がありませんでした。", "error");
+      }
+    } catch (error) {
+      console.error(error);
+      showToast("❌ カメラ画像の解析に失敗しました", "error");
+    } finally {
+      setIsProcessingImage(false);
     }
   };
 
@@ -180,7 +233,7 @@ export default function UltimateStudyExperience() {
         .select('*')
         .eq('user_id', user.id)
         .order('next_review_at', { ascending: true });
-      
+
       if (data && data.length === 0) {
         setShowCourseSelector(true);
         setCards([]);
@@ -273,17 +326,17 @@ export default function UltimateStudyExperience() {
     try {
       await supabase
         .from('cards')
-        .update({ 
-          interval, 
-          efactor, 
-          repetition, 
-          next_review_at: nextReviewDate.toISOString() 
+        .update({
+          interval,
+          efactor,
+          repetition,
+          next_review_at: nextReviewDate.toISOString()
         })
         .eq('id', currentCard.id);
-    } catch (e) { 
-      console.error(e); 
+    } catch (e) {
+      console.error(e);
     }
-    
+
     setIsFlipped(false);
     setTimeout(() => { setCurrentIndex((prev) => prev + 1); }, 200);
   }
@@ -315,7 +368,7 @@ export default function UltimateStudyExperience() {
       user_id: user.id,
       interval: 1,
     }));
-    
+
     try {
       await supabase.from('cards').insert(initialData);
       setShowCourseSelector(false);
@@ -468,9 +521,9 @@ export default function UltimateStudyExperience() {
         redirectUrl = `${window.location.protocol}//${host}`;
       }
     }
-    const { error } = await supabase.auth.signInWithOAuth({ 
+    const { error } = await supabase.auth.signInWithOAuth({
       provider,
-      options: { redirectTo: redirectUrl } 
+      options: { redirectTo: redirectUrl }
     });
     if (error) showToast(error.message, 'error');
   };
@@ -494,8 +547,8 @@ export default function UltimateStudyExperience() {
   useEffect(() => {
     let result = cards.filter(card => {
       const matchesCategory = selectedCategory === 'All' || card.category === selectedCategory;
-      const matchesSearch = card.front.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            card.back.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = card.front.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        card.back.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
     setDisplayCards(result);
@@ -540,7 +593,7 @@ export default function UltimateStudyExperience() {
   function handleQuizAnswer(option: string) {
     if (quizSelected) return;
     setQuizSelected(option);
-    
+
     const isCorrect = option === cards[quizIndex].back;
     if (isCorrect) {
       setQuizScore(prev => prev + 1);
@@ -596,25 +649,25 @@ export default function UltimateStudyExperience() {
   async function handleAddCard(e: React.FormEvent) {
     e.preventDefault();
     if (!user) { showToast('カードを追加するにはログインが必要です。', 'info'); return; }
-    
+
     const trimmedFront = newFront.trim();
     const trimmedBack = newBack.trim();
     if (!trimmedFront || !trimmedBack) return;
 
     try {
       const { error } = await supabase.from('cards').insert([
-        { 
-          front: trimmedFront, 
-          back: trimmedBack, 
-          example: newExample.trim() || null, 
-          category: newCategory.trim() || 'General', 
+        {
+          front: trimmedFront,
+          back: trimmedBack,
+          example: newExample.trim() || null,
+          category: newCategory.trim() || 'General',
           user_id: user.id,
           is_public: newIsPublic
         }
       ]);
       if (!error) {
-        setNewFront(''); 
-        setNewBack(''); 
+        setNewFront('');
+        setNewBack('');
         setNewExample('');
         setNewIsPublic(false);
         showToast('カードを追加しました', 'success');
@@ -637,10 +690,10 @@ export default function UltimateStudyExperience() {
     try {
       const { error } = await supabase
         .from('cards')
-        .update({ 
-          front: editFront.trim(), 
-          back: editBack.trim(), 
-          example: editExample.trim() || null, 
+        .update({
+          front: editFront.trim(),
+          back: editBack.trim(),
+          example: editExample.trim() || null,
           category: editCategory.trim(),
           is_public: editIsPublic
         })
@@ -660,6 +713,25 @@ export default function UltimateStudyExperience() {
       showToast('カードを削除しました', 'success');
       fetchCards();
     } catch (e) { showToast('削除に失敗しました。', 'error'); }
+  }
+
+  // データベースの is_public フラグを反転させる関数
+  async function toggleCardPublic(cardId: number, currentStatus: boolean) {
+    try {
+      const { error } = await supabase
+        .from('cards')
+        .update({ is_public: !currentStatus })
+        .eq('id', cardId);
+
+      if (!error) {
+        showToast(!currentStatus ? 'カードを一般公開しました！' : 'カードを非公開にしました', 'success');
+        fetchCards(); // 自分のカードリストを再更新
+      } else {
+        showToast('設定の変更に失敗しました。', 'error');
+      }
+    } catch (e) {
+      showToast('エラーが発生しました。', 'error');
+    }
   }
 
   const uniqueCategories = Array.from(new Set(cards.map(c => c.category || 'General')));
@@ -684,7 +756,7 @@ export default function UltimateStudyExperience() {
 
   return (
     <div className={`min-h-screen font-sans flex flex-col justify-between antialiased transition-colors duration-300 ${bgClass}`}>
-      
+
       {/* ヘッダー */}
       <header className={`px-6 py-4 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
         <div className="flex items-center justify-between w-full md:w-auto">
@@ -712,7 +784,7 @@ export default function UltimateStudyExperience() {
             </button>
           </div>
         </div>
-        
+
         <div className="hidden md:flex items-center gap-2 text-[10px] font-mono tracking-wider">
           <span className="text-blue-500 font-bold">LV.{level}</span>
           <span className="text-slate-400">|</span>
@@ -758,14 +830,14 @@ export default function UltimateStudyExperience() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className={`p-6 rounded-2xl border max-w-sm w-full ${subContainerClass}`}>
             <h3 className="text-xs font-mono font-bold tracking-widest uppercase mb-4 text-slate-400">{authMode === 'login' ? 'Sign In Pro Account' : 'Create Pro Account'}</h3>
-            
+
             <div className="flex flex-col gap-2 mb-4">
               <button onClick={() => handleOAuthLogin('google')} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border bg-white text-black hover:bg-slate-200 transition">
-                <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+                <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" /></svg>
                 Continue with Google
               </button>
               <button onClick={() => handleOAuthLogin('github')} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border bg-[#24292e] text-white hover:bg-[#1a1e22] transition">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.008.069-.008 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.008.069-.008 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z" /></svg>
                 Continue with GitHub
               </button>
             </div>
@@ -832,7 +904,7 @@ export default function UltimateStudyExperience() {
       {/* メインコンテンツ */}
       {activeTab === 'study' && (
         <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-lg w-full mx-auto relative z-10">
-          
+
           {/* カテゴリフィルター & 検索 */}
           <div className="w-full flex gap-2 mb-4 items-center">
             <select
@@ -874,7 +946,7 @@ export default function UltimateStudyExperience() {
             </motion.div>
           ) : (
             <div className="w-full space-y-4">
-              
+
               {/* 進捗バー */}
               <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 px-1">
                 <span>CARD {currentIndex + 1} OF {displayCards.length}</span>
@@ -885,8 +957,8 @@ export default function UltimateStudyExperience() {
               </div>
 
               {/* フラッシュカード本体 */}
-              <div 
-                className="relative h-72 w-full cursor-pointer" 
+              <div
+                className="relative h-72 w-full cursor-pointer"
                 onClick={() => setIsFlipped(!isFlipped)}
                 style={{ perspective: "1000px" }}
               >
@@ -896,9 +968,9 @@ export default function UltimateStudyExperience() {
                   transition={{ duration: 0.4, ease: "easeInOut" }}
                   className="w-full h-full relative"
                 >
-                  
+
                   {/* カード前面 (表面) */}
-                  <div 
+                  <div
                     className={`absolute inset-0 w-full h-full rounded-2xl border p-6 flex flex-col justify-between shadow-xl transition-colors duration-300 ${cardClass}`}
                     style={{ backfaceVisibility: "hidden" }}
                   >
@@ -927,7 +999,7 @@ export default function UltimateStudyExperience() {
                   </div>
 
                   {/* カード背面 (裏面) */}
-                  <div 
+                  <div
                     className={`absolute inset-0 w-full h-full rounded-2xl border p-6 flex flex-col justify-between shadow-xl transition-colors duration-300 ${cardClass}`}
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                   >
@@ -1034,7 +1106,7 @@ export default function UltimateStudyExperience() {
                 <span>QUIZ {quizIndex + 1} OF {cards.length}</span>
                 <span>SCORE: {quizScore}</span>
               </div>
-              
+
               <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
                 <span className="text-[9px] font-mono font-bold tracking-widest text-blue-500 uppercase px-2 py-0.5 bg-blue-500/10 rounded border border-blue-500/20 block w-max mx-auto mb-3">QUESTION</span>
                 <h3 className="text-base font-black tracking-tight">{cards[quizIndex].front}</h3>
@@ -1045,7 +1117,7 @@ export default function UltimateStudyExperience() {
                   const isSelected = quizSelected === option;
                   const isCorrect = option === cards[quizIndex].back;
                   let btnStyle = isDark ? 'bg-slate-900 border-slate-800 hover:bg-slate-850 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-xs';
-                  
+
                   if (quizSelected) {
                     if (isCorrect) btnStyle = 'bg-green-500/20 border-green-500 text-green-400 font-bold';
                     else if (isSelected) btnStyle = 'bg-red-500/20 border-red-500 text-red-400 font-bold';
@@ -1072,7 +1144,7 @@ export default function UltimateStudyExperience() {
       {/* 📂 単語帳管理タブ */}
       {activeTab === 'manage' && (
         <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
-          
+
           {/* AI生成機能 */}
           <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
             <h4 className="text-xs font-mono font-bold tracking-widest text-blue-500 uppercase mb-1">✨ AI Flashcard Generator</h4>
@@ -1086,6 +1158,36 @@ export default function UltimateStudyExperience() {
                 rows={3}
                 className={`w-full p-3 rounded-xl text-xs font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass}`}
               />
+              {/* 隠しカメラインプット（スマホならカメラ起動、PCならファイル選択） */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept="image/*"
+                capture="environment" // スマホの背面カメラを直接起動させる
+                className="hidden"
+                onChange={handleImageChange}
+              />
+
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isProcessingImage || isGenerating}
+                  className="w-full py-3 px-4 rounded-xl border border-dashed border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400 text-xs font-mono font-bold tracking-wider transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none group"
+                >
+                  {isProcessingImage ? (
+                    <>
+                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                      <span>OCR SCANNING IN PROGRESS...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="group-hover:rotate-12 transition-transform">📸</span>
+                      <span>AI CAMERA SCAN</span>
+                    </>
+                  )}
+                </button>
+              </div>
               <button
                 onClick={handleGenerateAI}
                 disabled={isGenerating}
@@ -1134,7 +1236,7 @@ export default function UltimateStudyExperience() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             {/* 新規カード追加フォーム */}
             <div className={`p-5 rounded-2xl border h-max ${subContainerClass}`}>
               <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Add New Card</h4>
@@ -1194,6 +1296,12 @@ export default function UltimateStudyExperience() {
                       <div className="flex justify-between items-start gap-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
+                            <button
+                              onClick={() => toggleCardPublic(card.id, card.is_public)}
+                              className={`px-2 py-1 rounded text-xs ${card.is_public ? 'bg-green-500 text-white' : 'bg-slate-600 text-slate-300'}`}
+                            >
+                              {card.is_public ? '🌐 公開中' : '🔒 非公開'}
+                            </button>
                             <span className="text-xs font-black tracking-tight">{card.front}</span>
                             <span className="text-slate-500 text-[10px]">|</span>
                             <span className="text-xs text-blue-400 font-medium">{card.back}</span>
@@ -1321,9 +1429,8 @@ export default function UltimateStudyExperience() {
         <motion.div
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${
-            toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-          }`}
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
+            }`}
         >
           {toastType === 'success' && <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           {toastType === 'error' && <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
