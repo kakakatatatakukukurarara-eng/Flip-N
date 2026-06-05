@@ -176,7 +176,7 @@ export default function UltimateStudyExperience() {
       const data = await response.json();
 
       if (data.cards && data.cards.length > 0) {
-        setPreviewCards(data.cards);
+        setAiPreviewCards(data.cards);
         showToast(`📸 ${data.cards.length}個の単語をカメラから保存しました！`, "success");
       } else {
         showToast("辞書にマッチする単語がありませんでした。", "error");
