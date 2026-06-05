@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+export const metadata = {
+  title: 'FLIP-N PRO | AI英単語フラッシュカード',
+  description: 'AIが未知の英単語を自動抽出してフラッシュカードを生成する、進化系暗記アプリ。間隔反復（SRS）アルゴリズム搭載。',
+  keywords: ['Flip-N', 'フリップエヌ', '英単語', 'フラッシュカード', '暗記アプリ', 'AI学習'],
+};
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
