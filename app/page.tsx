@@ -1352,7 +1352,7 @@ export default function UltimateStudyExperience() {
                 <div key={sCard.id} className={`p-4 rounded-2xl border flex justify-between items-start gap-4 transition ${cardClass}`}>
                   <div className="space-y-1 flex-grow">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-black tracking-tight text-white">{sCard.front}</span>
+                      <span className="text-xs font-black tracking-tight text-black">{sCard.front}</span>
                       <span className="text-slate-600 text-[10px]">|</span>
                       <span className="text-xs text-blue-400 font-medium">{sCard.back}</span>
                       <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 px-1.5 py-0.2 bg-purple-500/10 rounded border border-purple-500/20">{sCard.category || 'Shared'}</span>
