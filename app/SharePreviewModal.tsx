@@ -13,9 +13,9 @@ interface SharePreviewProps {
 }
 
 export default function SharePreviewModal({
-  streak, 
-  level, 
-  studyLogs = {}, 
+  streak,
+  level,
+  studyLogs = {},
   deckSize = 0, // 🌟 Propsから受け取る
   mastery = 0,  // 🌟 Propsから受け取る
   isDark = false,
@@ -51,13 +51,12 @@ export default function SharePreviewModal({
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4 z-[9999]">
       <div className="w-full max-w-sm flex flex-col gap-4">
-        
+
         {/* 🌟 撮影対象となる隠れコンポーネント（SNSサイズに最適化） */}
-        <div 
+        <div
           ref={shareCardRef}
-          className={`p-6 rounded-3xl border shadow-2xl flex flex-col justify-between aspect-[4/5] w-full ${
-            isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
-          }`}
+          className={`p-6 rounded-3xl border shadow-2xl flex flex-col justify-between aspect-[4/5] w-full ${isDark ? 'bg-slate-900 border-slate-800 text-white' : 'bg-white border-slate-200 text-slate-900'
+            }`}
         >
           {/* ヘッダー */}
           <div className="flex justify-between items-center">
@@ -125,6 +124,22 @@ export default function SharePreviewModal({
             className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono font-bold text-xs rounded-xl border border-slate-700 transition"
           >
             CLOSE
+          </button>
+          <button
+            onClick={() => {
+              // 1. シェアしたいテキストを作成（改行は \n）
+              const text = `FLIP-N PRO で学習記録を達成しました！🔥\n\n📊 今日の成果\n・連続学習: {streak}日\n・現在のレベル: Lv.{level}\n・定着率: {mastery}%\n\n#FLIP_N_PRO #今日の積み上げ`;
+
+              // 2. URLエンコードする（文字化け対策）
+              const encodedText = encodeURIComponent(text);
+
+              // 3. Xのシェア用URLを作成して新しいタブで開く
+              const xUrl = `https://twitter.com/intent/tweet?text=${encodedText}`;
+              window.open(xUrl, '_blank', 'noreferrer');
+            }}
+            className="flex-1 py-3 bg-[#1DA1F2] hover:bg-[#1a91da] text-white font-mono font-bold text-xs rounded-xl flex items-center justify-center gap-2 transition"
+          >
+            𝕏 SHARE ON X
           </button>
           <button
             onClick={handleDownloadImage}

@@ -46,6 +46,10 @@ const COURSE_PRESETS = {
 };
 
 export default function UltimateStudyExperience() {
+  const [quizMode, setQuizMode] = useState<'choice4' | 'typing' | 'boolean'>('choice4');
+  // タイピングモード用の状態
+  const [typingAnswer, setTypingAnswer] = useState('');
+  const [isTypingCorrect, setIsTypingCorrect] = useState<boolean | null>(null);
   const [user, setUser] = useState<any>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1138,12 +1142,17 @@ export default function UltimateStudyExperience() {
     <div className={`min-h-screen font-sans flex flex-col justify-between antialiased transition-colors duration-300 ${bgClass}`}>
 
       {/* ヘッダー */}
-      <header className={`px-6 4 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
-        <div className="flex items-center justify-between w-full md:w-auto">
+      <header className={`px-6 py-3.5 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
+
+        {/* 【左側グループ】ロゴ、ストリーク、レベル情報を美しく一体化 */}
+        <div className="flex items-center justify-between w-full md:w-auto md:gap-6">
           <div className="flex items-center gap-4">
+            {/* ロゴ */}
             <span className={`text-base font-black tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
               FLIP-N <span className="text-blue-500">PRO</span>
             </span>
+
+            {/* ストリーク表示 */}
             <div className={`text-[10px] font-mono tracking-wide px-2.5 py-0.5 rounded border flex items-center gap-1.5 ${isDark ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
               <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -1151,8 +1160,16 @@ export default function UltimateStudyExperience() {
               </svg>
               <span>{streak} DAYS</span>
             </div>
+
+            {/* デスクトップ用：レベル表示（ロゴのすぐ横に並ぶようにここに移動） */}
+            <div className="hidden md:flex items-center gap-2 text-[10px] font-mono tracking-wider border-l pl-4 border-slate-700/30">
+              <span className="text-blue-500 font-bold">LV.{level}</span>
+              <span className="text-slate-400">|</span>
+              <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{title}</span>
+            </div>
           </div>
 
+          {/* モバイル専用アクション（スマホ画面のときだけ右上に表示） */}
           <div className="flex items-center gap-2 md:hidden">
             {user ? (
               <button onClick={handleLogout} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
@@ -1165,14 +1182,10 @@ export default function UltimateStudyExperience() {
           </div>
         </div>
 
-        <div className="hidden md:flex items-center gap-2 text-[10px] font-mono tracking-wider">
-          <span className="text-blue-500 font-bold">LV.{level}</span>
-          <span className="text-slate-400">|</span>
-          <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{title}</span>
-        </div>
-
-        <div className="flex items-center justify-between gap-4 w-full md:w-auto">
-          <nav className={`flex p-1 rounded-xl border overflow-x-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
+        {/* 【右側グループ】ナビゲーションと各種ボタンを集約 */}
+        <div className="flex flex-col md:flex-row items-center justify-between md:justify-end gap-4 w-full md:w-auto md:gap-6">
+          {/* タブナビゲーション */}
+          <nav className={`flex p-1 rounded-xl border overflow-x-auto w-full md:w-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
             {[
               { id: 'study', label: 'STUDY', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg> },
               { id: 'test', label: 'TEST', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
@@ -1191,6 +1204,7 @@ export default function UltimateStudyExperience() {
             ))}
           </nav>
 
+          {/* デスクトップ専用アクション（ログアウト、テーマ切り替え） */}
           <div className="hidden md:flex items-center gap-2">
             {user ? (
               <button onClick={handleLogout} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
@@ -1472,14 +1486,38 @@ export default function UltimateStudyExperience() {
         </main>
       )}
 
-      {/* 📝 テスト (4択クイズ) */}
+      {/* 📝 テストタブ */}
       {activeTab === 'test' && (
-        <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-md w-full mx-auto relative z-10">
+        <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-md w-full mx-auto relative z-10 space-y-4">
+
+          {/* 🌟 テストモード切り替えセレクター */}
+          {quizIndex < cards.length && (
+            <div className={`w-full p-1 rounded-xl border flex ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
+              {[
+                { id: 'choice4', label: '4択クイズ' },
+                { id: 'typing', label: 'タイピング' },
+                { id: 'boolean', label: '○×テスト' }
+              ].map(mode => (
+                <button
+                  key={mode.id}
+                  onClick={() => {
+                    setQuizMode(mode.id as any);
+                    // モード切り替え時に状態をリセットする処理をここに挟むと親切
+                  }}
+                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition ${quizMode === mode.id ? (isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-blue-600 shadow-xs') : 'text-slate-500 hover:text-slate-400'}`}
+                >
+                  {mode.label}
+                </button>
+              ))}
+            </div>
+          )}
+
           {cards.length < 4 ? (
             <div className={`w-full p-8 text-center rounded-2xl border font-mono text-[11px] tracking-wide font-bold ${subContainerClass}`}>
               クイズを開始するには最低4枚のカードが必要です。
             </div>
           ) : quizIndex >= cards.length ? (
+            /* テスト完了画面 (既存のものをそのまま使用) */
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`w-full p-6 text-center rounded-2xl border ${subContainerClass}`}>
               <span className="text-2xl block mb-2">🏆</span>
               <h4 className="text-sm font-black tracking-tight mb-1">テスト完了！</h4>
@@ -1488,40 +1526,112 @@ export default function UltimateStudyExperience() {
             </motion.div>
           ) : (
             <div className="w-full space-y-4">
+              {/* スコア・進捗表示 (共通) */}
               <div className="flex justify-between items-center text-[10px] font-mono font-bold text-slate-500 px-1">
-                <span>QUIZ {quizIndex + 1} OF {cards.length}</span>
+                <span>{quizMode.toUpperCase()} | QUIZ {quizIndex + 1} OF {cards.length}</span>
                 <span>SCORE: {quizScore}</span>
               </div>
 
-              <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
-                <span className="text-[9px] font-mono font-bold tracking-widest text-blue-500 uppercase px-2 py-0.5 bg-blue-500/10 rounded border border-blue-500/20 block w-max mx-auto mb-3">QUESTION</span>
-                <h3 className="text-base font-black tracking-tight">{cards[quizIndex].front}</h3>
-              </div>
+              {/* ----------------------------------------------------
+           MODE 1: 4択クイズ (既存のロジック)
+        ---------------------------------------------------- */}
+              {quizMode === 'choice4' && (
+                <div className="space-y-4">
+                  <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
+                    <span className="text-[9px] font-mono font-bold tracking-widest text-blue-500 uppercase px-2 py-0.5 bg-blue-500/10 rounded border border-blue-500/20 block w-max mx-auto mb-3">QUESTION</span>
+                    <h3 className="text-base font-black tracking-tight">{cards[quizIndex].front}</h3>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    {quizOptions.map((option, idx) => {
+                      const isSelected = quizSelected === option;
+                      const isCorrect = option === cards[quizIndex].back;
+                      let btnStyle = isDark ? 'bg-slate-900 border-slate-800 hover:bg-slate-850 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-xs';
+                      if (quizSelected) {
+                        if (isCorrect) btnStyle = 'bg-green-500/20 border-green-500 text-green-400 font-bold';
+                        else if (isSelected) btnStyle = 'bg-red-500/20 border-red-500 text-red-400 font-bold';
+                      }
+                      return (
+                        <button
+                          key={idx}
+                          onClick={() => handleQuizAnswer(option)}
+                          className={`w-full p-3 rounded-xl border text-left text-xs transition flex items-center justify-between ${btnStyle}`}
+                        >
+                          <span>{option}</span>
+                          {quizSelected && isCorrect && <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
+                          {quizSelected && isSelected && !isCorrect && <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
 
-              <div className="flex flex-col gap-2">
-                {quizOptions.map((option, idx) => {
-                  const isSelected = quizSelected === option;
-                  const isCorrect = option === cards[quizIndex].back;
-                  let btnStyle = isDark ? 'bg-slate-900 border-slate-800 hover:bg-slate-850 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-xs';
+              {/* ----------------------------------------------------
+           MODE 2: タイピングテスト (新規)
+        ---------------------------------------------------- */}
+              {quizMode === 'typing' && (
+                <div className="space-y-4">
+                  <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
+                    <span className="text-[9px] font-mono font-bold tracking-widest text-purple-500 uppercase px-2 py-0.5 bg-purple-500/10 rounded border border-purple-500/20 block w-max mx-auto mb-3">意味から英語をタイピング</span>
+                    <h3 className="text-base font-black tracking-tight">{cards[quizIndex].back}</h3>
+                    {cards[quizIndex].example && (
+                      <p className="text-[11px] text-slate-400 italic mt-2">{cards[quizIndex].example}</p>
+                    )}
+                  </div>
 
-                  if (quizSelected) {
-                    if (isCorrect) btnStyle = 'bg-green-500/20 border-green-500 text-green-400 font-bold';
-                    else if (isSelected) btnStyle = 'bg-red-500/20 border-red-500 text-red-400 font-bold';
-                  }
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      placeholder="英単語を入力..."
+                      value={typingAnswer}
+                      onChange={(e) => setTypingAnswer(e.target.value)}
+                      disabled={isTypingCorrect !== null}
+                      className={`w-full px-4 py-3 rounded-xl text-sm font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass} ${isTypingCorrect === true ? 'border-green-500 bg-green-500/10' : isTypingCorrect === false ? 'border-red-500 bg-red-500/10' : ''
+                        }`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && typingAnswer.trim()) {
+                          // ここで正誤判定ロジックを呼ぶ（例: cards[quizIndex].front との比較）
+                          const correct = typingAnswer.trim().toLowerCase() === cards[quizIndex].front.trim().toLowerCase();
+                          setIsTypingCorrect(correct);
+                          if (correct) { setQuizScore(prev => prev + 1); speak('Excellent!'); } else { speak('Wrong'); }
+                          setTimeout(() => {
+                            // 次の問題へ進む処理
+                            setTypingAnswer('');
+                            setIsTypingCorrect(null);
+                            setQuizIndex(prev => prev + 1);
+                          }, 1500);
+                        }
+                      }}
+                    />
+                    <p className="text-[9px] text-slate-500 font-mono text-center">[Enter] で確定</p>
+                  </div>
+                </div>
+              )}
 
-                  return (
-                    <button
-                      key={idx}
-                      onClick={() => handleQuizAnswer(option)}
-                      className={`w-full p-3 rounded-xl border text-left text-xs transition flex items-center justify-between ${btnStyle}`}
-                    >
-                      <span>{option}</span>
-                      {quizSelected && isCorrect && <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                      {quizSelected && isSelected && !isCorrect && <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
+              {/* ----------------------------------------------------
+           MODE 3: ○×テスト (新規)
+        ---------------------------------------------------- */}
+              {quizMode === 'boolean' && (
+                <div className="space-y-4">
+                  <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
+                    <span className="text-[9px] font-mono font-bold tracking-widest text-cyan-500 uppercase px-2 py-0.5 bg-cyan-500/10 rounded border border-cyan-500/20 block w-max mx-auto mb-3">この組み合わせは正しい？</span>
+                    <div className="space-y-2">
+                      <h3 className="text-base font-black tracking-tight text-slate-400">ENG: <span className={isDark ? 'text-white' : 'text-slate-900'}>{cards[quizIndex].front}</span></h3>
+                      <h3 className="text-base font-black tracking-tight text-slate-400">JPN: <span className="text-blue-400">{/* ランダムまたは正解の意味を表示するロジック */} {cards[quizIndex].back}</span></h3>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <button onClick={() => {/* 正解判定ロジック */ }} className="p-4 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-xl font-bold transition text-sm">
+                      ◯ 正しい
                     </button>
-                  );
-                })}
-              </div>
+                    <button onClick={() => {/* 不正解判定ロジック */ }} className="p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl font-bold transition text-sm">
+                      ✕ 違う
+                    </button>
+                  </div>
+                </div>
+              )}
+
             </div>
           )}
         </main>
@@ -2016,16 +2126,16 @@ export default function UltimateStudyExperience() {
       )}
 
       {showShareModal && (
-  <SharePreviewModal 
-    streak={streak} 
-    level={level} 
-    studyLogs={studyLogs}
-    deckSize={cards.length}
-    mastery={mastery}
-    isDark={isDark} // 🌟 これを追記してダークモードの情報を渡す！
-    onClose={() => setShowShareModal(false)} 
-  />
-)}
+        <SharePreviewModal
+          streak={streak}
+          level={level}
+          studyLogs={studyLogs}
+          deckSize={cards.length}
+          mastery={mastery}
+          isDark={isDark} // 🌟 これを追記してダークモードの情報を渡す！
+          onClose={() => setShowShareModal(false)}
+        />
+      )}
 
     </div>
   );
