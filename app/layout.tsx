@@ -31,6 +31,21 @@ export default function RootLayout({
       <head>
         <link rel="manifest" href="/manifest.json" />
         <meta name="google-site-verification" content="a9d1ACZSw9i3cW483QCIuHXaIu6_sxAjQDCvpKJVFWQ" />
+        <meta property="og:site_name" content="Flip-N" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "WebSite",
+              "name": "Flip-N",
+              "url": "https://flip-n.vercel.app/"
+            })
+          }}
+        />
+        <link rel="icon" href="/icon.png" type="image/png" />
+        {/* サイズ違い（48x48pxなど）やapple用もあるとより確実です */}
+        <link rel="apple-touch-icon" href="/icon.png" />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
