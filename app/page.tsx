@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { createWorker } from 'tesseract.js';
+import SharePreviewModal from './SharePreviewModal';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -51,6 +52,13 @@ export default function UltimateStudyExperience() {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
 
   const [cards, setCards] = useState<Card[]>([]);
+  // 🗂️ デッキ（単語帳）用のState
+  const [decks, setDecks] = useState<any[]>([]);
+  const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
+  const [newDeckTitle, setNewDeckTitle] = useState('');
+  const [newDeckDesc, setNewDeckDesc] = useState('');
+  const [isDeckPublic, setIsDeckPublic] = useState(false);
+  const [publicDecks, setPublicDecks] = useState<any[]>([]); // みんなが公開したデッキ用
   const [sharedCards, setSharedCards] = useState<Card[]>([]);
   const [displayCards, setDisplayCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -61,6 +69,308 @@ export default function UltimateStudyExperience() {
   const [streak, setStreak] = useState(0);
   const [level, setLevel] = useState(1);
   const [title, setTitle] = useState('BEGINNER');
+  const [showShareModal, setShowShareModal] = useState(false); // 🌟 モーダルの開閉管理
+
+  // 🌟 1. デイリーミッションの進捗状態
+  const [dailyMissions, setDailyMissions] = useState({
+    studyCount: 0,       // 今日めくった枚数 (目標: 10)
+    testCompleted: false, // テストをやったか
+    speakCompleted: false // 発音分析をやったか
+  });
+
+  const [flipCoins, setFlipCoins] = useState(0); // 報酬用のコイン
+
+  // 🌟 2. 各アクションが起きた時に進捗をカウントアップする関数
+  const incrementMissionProgress = (type: 'study' | 'test' | 'speak') => {
+    setDailyMissions(prev => {
+      const updated = { ...prev };
+      if (type === 'study') updated.studyCount = Math.min(prev.studyCount + 1, 10);
+      if (type === 'test') updated.testCompleted = true;
+      if (type === 'speak') updated.speakCompleted = true;
+
+      // 【演出】もしこのアクションで新しくミッションがコンプリートされたらコインを付与
+      if (type === 'study' && prev.studyCount === 9 && updated.studyCount === 10) {
+        setFlipCoins(c => c + 50);
+        setToastType('success');
+        setToastMessage('✨ ミッション達成: 10枚学習 (+50 COINS!)');
+      }
+      if (type === 'test' && !prev.testCompleted && updated.testCompleted) {
+        setFlipCoins(c => c + 30);
+        setToastType('success');
+        setToastMessage('✨ ミッション達成: クイズに挑戦 (+30 COINS!)');
+      }
+      if (type === 'speak' && !prev.speakCompleted && updated.speakCompleted) {
+        setFlipCoins(c => c + 40);
+        setToastType('success');
+        setToastMessage('✨ ミッション達成: 発音分析に挑戦 (+40 COINS!)');
+      }
+
+      return updated;
+    });
+  };
+
+  // 🔄 ストリークをSupabaseまたはlocalStorageと同期する関数
+  async function syncStreak(currentUser: any) {
+    // DBで扱いやすいように "YYYY-MM-DD" 形式の文字列を作成
+    const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
+
+    // --- ゲストユーザー（未ログイン）の場合 ---
+    if (!currentUser) {
+      const today = now.toDateString();
+      const lastLogin = localStorage.getItem('last_login_date');
+      const currentStreak = parseInt(localStorage.getItem('streak_count') || '0', 10);
+
+      if (lastLogin === today) {
+        setStreak(currentStreak === 0 ? 1 : currentStreak);
+      } else if (lastLogin === new Date(Date.now() - 86400000).toDateString()) {
+        const newStreak = currentStreak + 1;
+        localStorage.setItem('streak_count', newStreak.toString());
+        localStorage.setItem('last_login_date', today);
+        setStreak(newStreak);
+      } else {
+        localStorage.setItem('streak_count', '1');
+        localStorage.setItem('last_login_date', today);
+        setStreak(1);
+      }
+      return;
+    }
+
+    // --- ログインユーザーの場合（Supabaseと同期） ---
+    try {
+      // データベースからプロフィールを取得
+      let { data: profile, error } = await supabase
+        .from('profiles')
+        .select('streak_count, last_login_date')
+        .eq('id', currentUser.id)
+        .maybeSingle(); // single()だとデータがない時にエラーになるためmaybeSingleを使用
+
+      // プロフィールがまだ存在しない場合は新規作成（サインアップ直後など）
+      if (!profile) {
+        const { data: newProfile } = await supabase
+          .from('profiles')
+          .insert([{ id: currentUser.id, streak_count: 1, last_login_date: todayStr }])
+          .select()
+          .single();
+        if (newProfile) setStreak(1);
+        return;
+      }
+
+      let currentStreak = profile.streak_count || 0;
+      let lastLogin = profile.last_login_date; // SQLのdate型は "YYYY-MM-DD" 形式で返ってきます
+      let nextStreak = currentStreak;
+
+      if (lastLogin === todayStr) {
+        // 今日すでにログインしている場合は維持
+        nextStreak = currentStreak === 0 ? 1 : currentStreak;
+      } else {
+        // 昨日を表す日付文字列を作成
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+        if (lastLogin === yesterdayStr) {
+          // 前回のログインが昨日ならストリーク＋1
+          nextStreak = currentStreak + 1;
+        } else {
+          // 1日以上空いていたらストリークを1にリセット
+          nextStreak = 1;
+        }
+
+        // データベースを更新
+        await supabase
+          .from('profiles')
+          .update({ streak_count: nextStreak, last_login_date: todayStr, updated_at: new Date().toISOString() })
+          .eq('id', currentUser.id);
+      }
+
+      setStreak(nextStreak);
+    } catch (e) {
+      console.error("Streak sync error:", e);
+    }
+  }
+
+  // 🌟 1. 自分のデッキをエクスポートして共有URLを発行する関数
+  const handleShareDeck = async (deckTitle: string, deckDescription: string) => {
+    if (!user) {
+      setToastType('error');
+      setToastMessage('共有するにはログインが必要です');
+      return;
+    }
+
+    setToastType('info');
+    setToastMessage('共有URLを生成中...');
+
+    try {
+      // ① 親テーブル (shared_decks) にデッキの基本情報を登録
+      const { data: deckData, error: deckError } = await supabase
+        .from('shared_decks')
+        .insert([{ title: deckTitle, description: deckDescription, creator_id: user.id }])
+        .select()
+        .single();
+
+      if (deckError) throw deckError;
+
+      // ② 子テーブル (shared_deck_cards) に現在の全カードを紐付けて一括登録
+      const cardsToInsert = cards.map(card => ({
+        deck_id: deckData.id,
+        front: card.front,
+        back: card.back,
+        example: card.example,
+        category: card.category
+      }));
+
+      const { error: cardsError } = await supabase
+        .from('shared_deck_cards')
+        .insert(cardsToInsert);
+
+      if (cardsError) throw cardsError;
+
+      // ③ 共有URLを生成してクリップボードにコピー
+      const shareUrl = `${window.location.origin}?deck_id=${deckData.id}`;
+      await navigator.clipboard.writeText(shareUrl);
+
+      setToastType('success');
+      setToastMessage('共有URLをコピーしました！SNSに貼り付けよう！');
+    } catch (error: any) {
+      // 👇 エラーのオブジェクトを文字列にしてトーストに表示させちゃう
+      console.error("Share Error Details:", error);
+      setToastType('error');
+      // error.message や error.details があればそれを画面に出す
+      setToastMessage(`URL作成失敗: ${error?.message || JSON.stringify(error) || '未知のエラー'}`);
+    }
+  };
+
+  // 🌟 2. URLのパラメータから自動でインポート画面を起動する処理 (useEffect)
+  useEffect(() => {
+    // URLの「?deck_id=xxxx」をチェック
+    const queryParams = new URLSearchParams(window.location.search);
+    const deckId = queryParams.get('deck_id');
+
+    if (deckId) {
+      // 共有されたデッキの情報をバックエンドから取得する関数を呼ぶ
+      fetchAndPromptImport(deckId);
+    }
+  }, []);
+
+  // 🌟 3. 共有データを取得して、インポート確認ダイアログを出す関数
+  const fetchAndPromptImport = async (deckId: string) => {
+    try {
+      // 親のデッキ情報を取得
+      const { data: deck, error: deckError } = await supabase
+        .from('shared_decks')
+        .select('title, description')
+        .eq('id', deckId)
+        .single();
+
+      if (deckError || !deck) return;
+
+      // 子のカードリストを取得
+      const { data: sharedCards, error: cardsError } = await supabase
+        .from('shared_deck_cards')
+        .select('front, back, example, category')
+        .eq('deck_id', deckId);
+
+      if (cardsError || !sharedCards) return;
+
+      // ブラウザの確認ダイアログ（または自作モーダル）でユーザーに確認
+      const confirmImport = window.confirm(
+        `共有デッキ「${deck.title}」(${sharedCards.length}枚のカード) が見つかりました。\nあなたの単語帳にインポートしますか？`
+      );
+
+      if (confirmImport) {
+        // 既存の自分のカード配列（cards）に、新しいカードたちを流し込む
+        // ※実際はローカルストレージや自分用のDBテーブルにも保存する処理をここに挟みます
+        const importedCards = sharedCards.map(c => ({
+          id: Date.now() + Math.floor(Math.random() * 1000), // 🌟 文字列ではなく、一意の「数値(number)」を生成
+          front: c.front,
+          back: c.back,
+          example: c.example,
+          category: c.category || 'Shared',
+
+          interval: 1,
+          efactor: 2.5,
+          repetition: 0,
+          is_public: false,
+          next_review_at: new Date().toISOString()
+        }));
+
+        // 既存の単語帳にマージ
+        setCards(prev => [...prev, ...importedCards]);
+        setToastType('success');
+        setToastMessage(`${deck.title} のインポートが完了しました！`);
+
+        // URLのパラメータを綺麗に消去（何度もリロードでインポートされないように）
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (err) {
+      console.error('インポートエラー:', err);
+    }
+  };
+
+  // 🟢 学習ログを管理するState（ヒートマップ表示用：{ "YYYY-MM-DD": カウント } の形式）
+  const [studyLogs, setStudyLogs] = useState<{ [key: string]: number }>({});
+
+  // 🟢 学習数を1増やす関数
+  async function recordStudy() {
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // --- ゲストユーザー（未ログイン）の場合 ---
+    if (!user) {
+      const localLogs = JSON.parse(localStorage.getItem('study_logs_local') || '{}');
+      localLogs[todayStr] = (localLogs[todayStr] || 0) + 1;
+      localStorage.setItem('study_logs_local', JSON.stringify(localLogs));
+      setStudyLogs(localLogs);
+      return;
+    }
+
+    // --- ログインユーザーの場合（SupabaseにUPSERT） ---
+    try {
+      // ON CONFLICT (user_id, study_date) を利用して、データがあれば card_count を+1、なければ新規挿入
+      // ※ただ、RPCを使わずにJSだけでやるため、一度現在の数を取得するか、以下のやり方で安全に更新します
+      const currentCount = studyLogs[todayStr] || 0;
+      const newCount = currentCount + 1;
+
+      const { error } = await supabase
+        .from('study_logs')
+        .upsert(
+          { user_id: user.id, study_date: todayStr, card_count: newCount },
+          { onConflict: 'user_id,study_date' }
+        );
+
+      if (!error) {
+        setStudyLogs(prev => ({ ...prev, [todayStr]: newCount }));
+      }
+    } catch (e) {
+      console.error("Failed to record study log:", e);
+    }
+  }
+
+  // 🟢 過去の学習ログを読み込む関数
+  async function fetchStudyLogs(currentUser: any) {
+    if (!currentUser) {
+      const localLogs = JSON.parse(localStorage.getItem('study_logs_local') || '{}');
+      setStudyLogs(localLogs);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('study_logs')
+        .select('study_date, card_count')
+        .eq('user_id', currentUser.id);
+
+      if (data && !error) {
+        const logsMap: { [key: string]: number } = {};
+        data.forEach(log => {
+          logsMap[log.study_date] = log.card_count;
+        });
+        setStudyLogs(logsMap);
+      }
+    } catch (e) {
+      console.error("Failed to fetch study logs:", e);
+    }
+  }
 
   const [isRecording, setIsRecording] = useState(false);
   const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
@@ -142,7 +452,6 @@ export default function UltimateStudyExperience() {
     showToast("⏳ 画像をスキャンして文字を抽出中...", "info");
 
     try {
-      // ユーザーのデバイス（スマホやPC）の頭脳を使って、その場で英語を読み取る
       const worker = await createWorker('eng');
       const { data: { text } } = await worker.recognize(file);
       await worker.terminate();
@@ -155,13 +464,12 @@ export default function UltimateStudyExperience() {
 
       showToast("📝 英語の抽出に成功！AI単語カードを生成中...", "info");
 
-      // 💡 すでにFLIP-Nにある既存の「/api/generate」にテキストをそのまま流し込む！
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           text: text,
-          category: selectedCategory !== 'All' ? selectedCategory : 'Camera Scan' // ⭕ selectedCategory に修正
+          category: selectedCategory !== 'All' ? selectedCategory : 'Camera Scan'
         }),
       });
 
@@ -288,10 +596,77 @@ export default function UltimateStudyExperience() {
     }
   }
 
+  // 🗂️ 1. 自分のデッキ一覧をSupabaseから取得する
+  async function fetchMyDecks(currentUser: any) {
+    if (!currentUser) return;
+    try {
+      const { data, error } = await supabase
+        .from('decks')
+        .select('*')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+
+      if (data && !error) setDecks(data);
+    } catch (e) {
+      console.error("Failed to fetch decks:", e);
+    }
+  }
+
+  // 🌍 2. 他のユーザーが公開しているデッキ一覧を取得する
+  async function fetchPublicDecks() {
+    try {
+      const { data, error } = await supabase
+        .from('decks')
+        .select('*, profiles(id)') // 作成者の情報も一緒に取る（任意）
+        .eq('is_public', true)
+        .order('created_at', { ascending: false });
+
+      if (data && !error) setPublicDecks(data);
+    } catch (e) {
+      console.error("Failed to fetch public decks:", e);
+    }
+  }
+
+  // ➕ 3. 新しいデッキ（単語帳）を作成する
+  async function handleCreateDeck(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !newDeckTitle.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('decks')
+        .insert([
+          {
+            user_id: user.id,
+            title: newDeckTitle.trim(),
+            description: newDeckDesc.trim(),
+            is_public: isDeckPublic
+          }
+        ])
+        .select()
+        .single();
+
+      if (data && !error) {
+        setDecks(prev => [data, ...prev]);
+        setNewDeckTitle('');
+        setNewDeckDesc('');
+        setIsDeckPublic(false);
+        alert('新しい単語帳を作成しました！🎉');
+      }
+    } catch (e) {
+      console.error("Failed to create deck:", e);
+    }
+  }
+
   async function handleResponse(quality: number) {
     if (!displayCards || displayCards.length === 0) return;
     const currentCard = displayCards[currentIndex];
     if (!currentCard) return;
+
+    recordStudy();
+
+
+
 
     if (!user) {
       setIsFlipped(false);
@@ -339,6 +714,8 @@ export default function UltimateStudyExperience() {
 
     setIsFlipped(false);
     setTimeout(() => { setCurrentIndex((prev) => prev + 1); }, 200);
+
+    incrementMissionProgress('study');
   }
 
   useEffect(() => {
@@ -472,26 +849,23 @@ export default function UltimateStudyExperience() {
     }
   }
 
+  // ⭕ テーマの読み込みだけ初期起動時に行う
   useEffect(() => {
-    const today = new Date().toDateString();
-    const lastLogin = localStorage.getItem('last_login_date');
-    const currentStreak = parseInt(localStorage.getItem('streak_count') || '0', 10);
-    if (lastLogin === today) {
-      setStreak(currentStreak === 0 ? 1 : currentStreak);
-    } else if (lastLogin === new Date(Date.now() - 86400000).toDateString()) {
-      const newStreak = currentStreak + 1;
-      localStorage.setItem('streak_count', newStreak.toString());
-      localStorage.setItem('last_login_date', today);
-      setStreak(newStreak);
-    } else {
-      localStorage.setItem('streak_count', '1');
-      localStorage.setItem('last_login_date', today);
-      setStreak(1);
-    }
-
     const savedTheme = localStorage.getItem('user_theme');
     if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme as any);
   }, []);
+
+  // ⭕ ユーザー（ログイン状態）が変わるたびにストリークを同期
+  useEffect(() => {
+    syncStreak(user);
+    fetchStudyLogs(user);
+    if (user) {
+      fetchCards();    // 自分のデッキを読み込む
+      fetchSharedCards();   // みんなの公開デッキを読み込む
+    }
+  }, [user]);
+
+
 
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
@@ -615,6 +989,8 @@ export default function UltimateStudyExperience() {
         setQuizIndex(prev => prev + 1);
       }
     }, 1200);
+
+    incrementMissionProgress('test');
   }
 
   function startPronunciationAnalysis() {
@@ -639,6 +1015,8 @@ export default function UltimateStudyExperience() {
         setPronunciationScore(Math.floor(Math.random() * 20) + 60);
         speak('Try again.');
       }
+
+      incrementMissionProgress('speak');
     };
 
     recognition.onerror = () => setIsRecording(false);
@@ -715,7 +1093,6 @@ export default function UltimateStudyExperience() {
     } catch (e) { showToast('削除に失敗しました。', 'error'); }
   }
 
-  // データベースの is_public フラグを反転させる関数
   async function toggleCardPublic(cardId: number, currentStatus: boolean) {
     try {
       const { error } = await supabase
@@ -725,7 +1102,7 @@ export default function UltimateStudyExperience() {
 
       if (!error) {
         showToast(!currentStatus ? 'カードを一般公開しました！' : 'カードを非公開にしました', 'success');
-        fetchCards(); // 自分のカードリストを再更新
+        fetchCards();
       } else {
         showToast('設定の変更に失敗しました。', 'error');
       }
@@ -746,6 +1123,9 @@ export default function UltimateStudyExperience() {
   const subContainerClass = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs';
   const innerBoxClass = isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-100';
 
+  const mainTabMasteredCards = cards.filter((c: any) => c.interval > 1).length;
+  const mastery = cards.length > 0 ? Math.round((mainTabMasteredCards / cards.length) * 100) : 0;
+
   if (loading) {
     return (
       <div className={`flex items-center justify-center min-h-screen text-xs font-bold tracking-widest ${isDark ? 'bg-slate-950 text-slate-600' : 'bg-slate-50 text-slate-400'}`}>
@@ -758,7 +1138,7 @@ export default function UltimateStudyExperience() {
     <div className={`min-h-screen font-sans flex flex-col justify-between antialiased transition-colors duration-300 ${bgClass}`}>
 
       {/* ヘッダー */}
-      <header className={`px-6 py-4 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
+      <header className={`px-6 4 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
         <div className="flex items-center justify-between w-full md:w-auto">
           <div className="flex items-center gap-4">
             <span className={`text-base font-black tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
@@ -779,7 +1159,7 @@ export default function UltimateStudyExperience() {
             ) : (
               <button onClick={() => setAuthMode('login')} className="text-[10px] font-mono border rounded px-2.5 py-1.5 bg-blue-600 text-white border-blue-600">SIGN IN</button>
             )}
-            <button onClick={toggleTheme} className={`p-2 rounded-lg border flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-slate-100 border-slate-220 text-slate-600'}`}>
+            <button onClick={toggleTheme} className={`p-2 rounded-lg border flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
               {isDark ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
             </button>
           </div>
@@ -791,7 +1171,6 @@ export default function UltimateStudyExperience() {
           <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{title}</span>
         </div>
 
-        {/* ナビゲーション */}
         <div className="flex items-center justify-between gap-4 w-full md:w-auto">
           <nav className={`flex p-1 rounded-xl border overflow-x-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
             {[
@@ -947,31 +1326,38 @@ export default function UltimateStudyExperience() {
           ) : (
             <div className="w-full space-y-4">
 
-              {/* 進捗バー */}
-              <div className="flex items-center justify-between text-[10px] font-mono font-bold text-slate-500 px-1">
-                <span>CARD {currentIndex + 1} OF {displayCards.length}</span>
-                <span>{Math.round(((currentIndex) / displayCards.length) * 100)}% DONE</span>
-              </div>
-              <div className={`w-full h-1 rounded-full overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-slate-200'}`}>
-                <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${((currentIndex) / displayCards.length) * 100}%` }}></div>
+              {/* 🌟 1. リアルタイム進捗バー（アップデート） */}
+              <div className="w-full space-y-1.5 px-1 mb-2">
+                <div className="flex justify-between items-center text-[10px] font-mono font-bold tracking-wider text-slate-400">
+                  <span>REVIEW PROGRESS</span>
+                  <span className="text-blue-500 bg-blue-500/10 px-2 py-0.5 rounded-md border border-blue-500/20">
+                    {currentIndex + 1} / {displayCards.length} CARDS
+                  </span>
+                </div>
+                <div className={`w-full h-1.5 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
+                  <motion.div
+                    className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full"
+                    animate={{ width: `${displayCards.length > 0 ? ((currentIndex) / displayCards.length) * 100 : 0}%` }}
+                    transition={{ duration: 0.3, ease: "easeOut" }}
+                  />
+                </div>
               </div>
 
-              {/* フラッシュカード本体 */}
+              {/* 🌟 2. 3D立体バネ（Spring）フリップカード本体 */}
               <div
                 className="relative h-72 w-full cursor-pointer"
                 onClick={() => setIsFlipped(!isFlipped)}
-                style={{ perspective: "1000px" }}
+                style={{ perspective: "1200px" }}
               >
                 <motion.div
                   style={{ x, y, rotateX, rotateY, transformStyle: "preserve-3d" }}
                   animate={{ rotateY: isFlipped ? 180 : 0 }}
-                  transition={{ duration: 0.4, ease: "easeInOut" }}
+                  transition={{ type: "spring", stiffness: 260, damping: 25 }}
                   className="w-full h-full relative"
                 >
-
                   {/* カード前面 (表面) */}
                   <div
-                    className={`absolute inset-0 w-full h-full rounded-2xl border p-6 flex flex-col justify-between shadow-xl transition-colors duration-300 ${cardClass}`}
+                    className={`absolute inset-0 w-full h-full rounded-2xl border p-6 flex flex-col justify-between shadow-2xl transition-colors duration-300 ${cardClass}`}
                     style={{ backfaceVisibility: "hidden" }}
                   >
                     <div className="flex justify-between items-center">
@@ -1000,7 +1386,7 @@ export default function UltimateStudyExperience() {
 
                   {/* カード背面 (裏面) */}
                   <div
-                    className={`absolute inset-0 w-full h-full rounded-2xl border p-6 flex flex-col justify-between shadow-xl transition-colors duration-300 ${cardClass}`}
+                    className={`absolute inset-0 w-full h-full rounded-2xl border p-6 flex flex-col justify-between shadow-2xl transition-colors duration-300 ${cardClass}`}
                     style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
                   >
                     <div className="flex justify-between items-center">
@@ -1145,6 +1531,17 @@ export default function UltimateStudyExperience() {
       {activeTab === 'manage' && (
         <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
 
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-base font-black tracking-tight">単語帳の管理・編集</h3>
+            {/* 🌟 共有ボタンを設置 */}
+            <button
+              onClick={() => handleShareDeck("マイベスト英会話", "自分がよく使うフレーズ集")}
+              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-[11px] rounded-xl transition flex items-center gap-1 uppercase"
+            >
+              <span>🔗</span> SHARE THIS DECK
+            </button>
+          </div>
+
           {/* AI生成機能 */}
           <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
             <h4 className="text-xs font-mono font-bold tracking-widest text-blue-500 uppercase mb-1">✨ AI Flashcard Generator</h4>
@@ -1158,12 +1555,11 @@ export default function UltimateStudyExperience() {
                 rows={3}
                 className={`w-full p-3 rounded-xl text-xs font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass}`}
               />
-              {/* 隠しカメラインプット（スマホならカメラ起動、PCならファイル選択） */}
               <input
                 type="file"
                 ref={fileInputRef}
                 accept="image/*"
-                capture="environment" // スマホの背面カメラを直接起動させる
+                capture="environment"
                 className="hidden"
                 onChange={handleImageChange}
               />
@@ -1305,9 +1701,9 @@ export default function UltimateStudyExperience() {
                             <span className="text-xs font-black tracking-tight">{card.front}</span>
                             <span className="text-slate-500 text-[10px]">|</span>
                             <span className="text-xs text-blue-400 font-medium">{card.back}</span>
-                            <span className="text-[8px] font-mono uppercase tracking-wider text-slate-500 px-1.5 py-0.2 bg-slate-950/40 rounded border border-slate-850">{card.category || 'General'}</span>
+                            <span className="text-[8px] font-mono uppercase tracking-wider text-slate-500 px-1.5 py-0.5 bg-slate-950/40 rounded border border-slate-850">{card.category || 'General'}</span>
                             {card.is_public && (
-                              <span className="text-[8px] font-mono text-green-500 font-bold bg-green-500/5 border border-green-500/20 px-1 py-0.2 rounded">PUBLIC</span>
+                              <span className="text-[8px] font-mono text-green-500 font-bold bg-green-500/5 border border-green-500/20 px-1 py-0.5 rounded">PUBLIC</span>
                             )}
                           </div>
                           {card.example && <p className="text-[11px] text-slate-400 italic font-sans">{card.example}</p>}
@@ -1352,10 +1748,12 @@ export default function UltimateStudyExperience() {
                 <div key={sCard.id} className={`p-4 rounded-2xl border flex justify-between items-start gap-4 transition ${cardClass}`}>
                   <div className="space-y-1 flex-grow">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-gray tracking-tight text-gray">{sCard.front}</span>
+                      <span className={`text-xs font-bold tracking-tight ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
+                        {sCard.front}
+                      </span>
                       <span className="text-slate-600 text-[10px]">|</span>
                       <span className="text-xs text-blue-400 font-medium">{sCard.back}</span>
-                      <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 px-1.5 py-0.2 bg-purple-500/10 rounded border border-purple-500/20">{sCard.category || 'Shared'}</span>
+                      <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 px-1.5 py-0.5 bg-purple-500/10 rounded border border-purple-500/20">{sCard.category || 'Shared'}</span>
                     </div>
                     {sCard.example && <p className="text-[11px] text-slate-400 italic">{sCard.example}</p>}
                     <div className="text-[8px] font-mono text-slate-600 pt-0.5">
@@ -1376,9 +1774,20 @@ export default function UltimateStudyExperience() {
         </main>
       )}
 
-      {/* 📊 分析ダッシュボード */}
+      {/* 📊 3. ゲーミフィケーション分析ダッシュボード（アップデート） */}
       {activeTab === 'dashboard' && (
-        <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex-1 max-w-md mx-auto w-full px-4 py-8 space-y-6"
+        >
+          {/* 🌟 追記：実績シェアモーダルを開くボタン */}
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="w-full mt-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-mono font-bold text-xs rounded-2xl shadow-lg transition transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-wider"
+          >
+            📸 GENERATE SHARE IMAGE (実績を画像でシェア)
+          </button>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
               <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Total Deck Size</span>
@@ -1387,8 +1796,8 @@ export default function UltimateStudyExperience() {
             </div>
             <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
               <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Mastery Rate</span>
-              <span className="text-xl font-black tracking-tight text-blue-400">{masterRate}%</span>
-              <span className="text-[8px] font-mono text-slate-400 block mt-0.5">{masteredCards} CARDS MASTERED</span>
+              <span className="text-xl font-black tracking-tight text-blue-400">{mastery}%</span>
+              <span className="text-[8px] font-mono text-slate-400 block mt-0.5">{mainTabMasteredCards} CARDS MASTERED</span>
             </div>
             <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
               <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Current Streak</span>
@@ -1402,6 +1811,173 @@ export default function UltimateStudyExperience() {
             </div>
           </div>
 
+          {/* 🌟 追記：デイリーミッションパネル（ダッシュボードの最上部などに配置） */}
+          <div className={`p-5 rounded-2xl border ${subContainerClass} space-y-4`}>
+            <div className="flex justify-between items-center">
+              <div className="space-y-0.5">
+                <h3 className="text-xs font-bold font-mono tracking-widest text-blue-500 uppercase">🎯 DAILY MISSIONS</h3>
+                <p className="text-[11px] text-slate-400">毎日クリアしてコインを稼ごう！</p>
+              </div>
+              {/* 所持コイン表示 */}
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-mono font-bold text-xs rounded-xl shadow-xs">
+                <span>🪙</span> {flipCoins} COINS
+              </div>
+            </div>
+
+            <div className="space-y-3 font-mono">
+              {/* ミッション1: STUDY */}
+              <div className="flex items-center justify-between text-xs">
+                <span className={dailyMissions.studyCount >= 10 ? 'text-green-400 line-through' : 'text-slate-300'}>
+                  {dailyMissions.studyCount >= 10 ? '✅' : '⚡'} カードを10枚学習する
+                </span>
+                <span className="text-slate-500 text-[11px]">{dailyMissions.studyCount} / 10</span>
+              </div>
+
+              {/* ミッション2: TEST */}
+              <div className="flex items-center justify-between text-xs">
+                <span className={dailyMissions.testCompleted ? 'text-green-400 line-through' : 'text-slate-300'}>
+                  {dailyMissions.testCompleted ? '✅' : '⚡'} クイズテストに1回挑戦する
+                </span>
+                <span className="text-slate-500 text-[11px]">{dailyMissions.testCompleted ? '1 / 1' : '0 / 1'}</span>
+              </div>
+
+              {/* ミッション3: SPEAK */}
+              <div className="flex items-center justify-between text-xs">
+                <span className={dailyMissions.speakCompleted ? 'text-green-400 line-through' : 'text-slate-300'}>
+                  {dailyMissions.speakCompleted ? '✅' : '⚡'} AI発音分析を1回以上試す
+                </span>
+                <span className="text-slate-500 text-[11px]">{dailyMissions.speakCompleted ? '1 / 1' : '0 / 1'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 🟢 ここから：GitHub風ヒートマップのUI */}
+          <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white border-zinc-200'} shadow-sm mb-6`}>
+            <div className="flex items-center gap-2 mb-4">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3 className="font-bold tracking-tight text-sm">学習ヒートマップ (直近12週間)</h3>
+            </div>
+
+            <div className="flex flex-wrap gap-1.5 justify-start p-1 overflow-x-auto">
+              {Array.from({ length: 84 }).map((_, i) => {
+                // 今日から遡って83日前までの日付を計算
+                const d = new Date();
+                d.setDate(d.getDate() - (83 - i));
+                const dateStr = d.toISOString().split('T')[0];
+                const count = studyLogs[dateStr] || 0;
+
+                // 学習数に応じた色の塗り分け
+                let bgClass = theme === 'dark' ? 'bg-zinc-800/60' : 'bg-zinc-100'; // 0問
+                if (count > 0 && count <= 3) bgClass = 'bg-emerald-900/40 text-emerald-400';   // 1~3問 (薄緑)
+                if (count > 3 && count <= 10) bgClass = 'bg-emerald-700/60 text-emerald-300';  // 4~10問 (中緑)
+                if (count > 10) bgClass = 'bg-emerald-500 text-white';                         // 11問以上 (濃緑)
+
+                return (
+                  <div
+                    key={i}
+                    className={`w-[14px] h-[14px] rounded-sm sm:rounded-[3px] ${bgClass} transition-all duration-300 hover:scale-125 cursor-pointer relative group flex-shrink-0`}
+                    title={`${dateStr}: ${count}問学習`}
+                  >
+                    {/* ホバー時に日付と問題数をポップアップ表示 */}
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-zinc-950 text-white text-[10px] py-1 px-2 rounded font-mono whitespace-nowrap z-50 shadow-xl border border-zinc-800">
+                      {dateStr} ({count}問)
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="flex justify-end items-center gap-1.5 mt-3 text-[10px] text-zinc-500 font-mono">
+              <span>Less</span>
+              <div className={`w-2.5 h-2.5 rounded-sm ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}></div>
+              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-900/40"></div>
+              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-700/60"></div>
+              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500"></div>
+              <span>More</span>
+            </div>
+          </div>
+          {/* 🟢 ここまで：ヒートマップUI */}
+
+          {/* 🌟 週間アクティビティ棒グラフ */}
+          <div className={`border rounded-2xl p-5 ${subContainerClass}`}>
+            <h3 className="text-xs font-bold font-mono tracking-widest text-slate-400 mb-6">WEEKLY LEARNING ACTIVITY</h3>
+
+            <div className="h-28 flex items-end justify-between gap-2.5 px-1 pt-4">
+              {[
+                { day: 'Mon', count: Math.min(cards.length, 4), height: 'h-[30%]' },
+                { day: 'Tue', count: Math.min(cards.length + 2, 8), height: 'h-[55%]' },
+                { day: 'Wed', count: Math.min(cards.length, 2), height: 'h-[15%]' },
+                { day: 'Thu', count: Math.min(cards.length * 2, 12), height: 'h-[75%]' },
+                { day: 'Fri', count: cards.length, height: 'h-[90%]', current: true }, // 本日
+                { day: 'Sat', count: 0, height: 'h-[5%]' },
+                { day: 'Sun', count: 0, height: 'h-[5%]' },
+              ].map((item, index) => (
+                <div key={index} className="flex-1 flex flex-col items-center gap-2 group relative">
+
+                  {/* ホバー時に枚数をふわっと表示する吹き出し */}
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-7 bg-slate-800 text-white border border-slate-700 text-[9px] font-mono px-1.5 py-0.5 rounded shadow-xl z-10 pointer-events-none">
+                    {item.count}枚
+                  </div>
+
+                  {/* 棒グラフのバー */}
+                  <div className={`w-full rounded-t-md relative overflow-hidden h-full flex items-end ${isDark ? 'bg-slate-800/40' : 'bg-slate-200/50'}`}>
+                    <motion.div
+                      initial={{ scaleY: 0 }}
+                      animate={{ scaleY: 1 }}
+                      transition={{ duration: 0.5, delay: index * 0.04 }}
+                      className={`w-full ${item.height} origin-bottom rounded-t-md ${item.current
+                        ? 'bg-gradient-to-t from-blue-600 to-cyan-400 shadow-[0_0_10px_rgba(59,130,246,0.4)]'
+                        : isDark ? 'bg-slate-700 group-hover:bg-slate-600' : 'bg-slate-400 group-hover:bg-slate-500'
+                        }`}
+                    />
+                  </div>
+
+                  {/* 曜日ラベル */}
+                  <span className={`text-[10px] font-mono ${item.current ? 'text-blue-500 font-bold' : 'text-slate-500'}`}>
+                    {item.day}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 🌟 脳内定着度メーター (SRS) */}
+          <div className={`border rounded-2xl p-5 space-y-4 ${subContainerClass}`}>
+            <h3 className="text-xs font-bold font-mono tracking-widest text-slate-400">MEMORY RETENTION (SRS)</h3>
+
+            <div className="space-y-3.5">
+              {/* 短期記憶メーター */}
+              <div>
+                <div className="flex justify-between text-xs font-mono mb-1.5">
+                  <span className="text-slate-400">🌱 短期記憶 / 学習中</span>
+                  <span className="text-slate-300 font-bold">{cards.filter(c => (c.interval || 1) <= 3).length}枚</span>
+                </div>
+                <div className={`w-full h-2 rounded-full overflow-hidden ${innerBoxClass}`}>
+                  <div
+                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 rounded-full"
+                    style={{ width: `${cards.length ? (cards.filter(c => (c.interval || 1) <= 3).length / cards.length) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 長期記憶メーター */}
+              <div>
+                <div className="flex justify-between text-xs font-mono mb-1.5">
+                  <span className="text-slate-400">🚀 長期記憶に定着中</span>
+                  <span className="text-slate-300 font-bold">{cards.filter(c => (c.interval || 1) > 3).length}枚</span>
+                </div>
+                <div className={`w-full h-2 rounded-full overflow-hidden ${innerBoxClass}`}>
+                  <div
+                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500 rounded-full"
+                    style={{ width: `${cards.length ? (cards.filter(c => (c.interval || 1) > 3).length / cards.length) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* システム通知設定 */}
           <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
             <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">SYSTEM NOTIFICATIONS</h4>
             <div className="space-y-3">
@@ -1416,7 +1992,8 @@ export default function UltimateStudyExperience() {
               </div>
             </div>
           </div>
-        </main>
+
+        </motion.div>
       )}
 
       {/* フッター */}
@@ -1429,8 +2006,7 @@ export default function UltimateStudyExperience() {
         <motion.div
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-            }`}
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}
         >
           {toastType === 'success' && <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           {toastType === 'error' && <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
@@ -1438,6 +2014,18 @@ export default function UltimateStudyExperience() {
           <span className="truncate">{toastMessage}</span>
         </motion.div>
       )}
+
+      {showShareModal && (
+  <SharePreviewModal 
+    streak={streak} 
+    level={level} 
+    studyLogs={studyLogs}
+    deckSize={cards.length}
+    mastery={mastery}
+    isDark={isDark} // 🌟 これを追記してダークモードの情報を渡す！
+    onClose={() => setShowShareModal(false)} 
+  />
+)}
 
     </div>
   );
