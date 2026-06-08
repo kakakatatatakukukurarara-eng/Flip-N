@@ -55,6 +55,9 @@ export default function UltimateStudyExperience() {
   const [password, setPassword] = useState('');
   const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
 
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+
   const [cards, setCards] = useState<Card[]>([]);
   // 🗂️ デッキ（単語帳）用のState
   const [decks, setDecks] = useState<any[]>([]);
@@ -69,6 +72,39 @@ export default function UltimateStudyExperience() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('study');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  // プロフィール用のState
+  const [editDisplayName, setEditDisplayName] = useState(user?.displayName || '');
+  const [dailyGoal, setDailyGoal] = useState(20); // 1日の目標単語数（初期値20）
+
+  // アプリ設定用のState
+  const [isAutoPlay, setIsAutoPlay] = useState(true); // 音声自動再生
+  const [audioSpeed, setAudioSpeed] = useState('1.0'); // 音声の速さ (1.0 or 0.8)
+  const [testTimer, setTestTimer] = useState('none'); // テストの制限時間
+
+  // プロフィールを保存する処理
+  const handleSaveProfile = () => {
+    if (user) {
+      // 1. 現在のuserオブジェクトのdisplayNameを上書き（Firebase等の場合はここで非同期更新）
+      user.displayName = editDisplayName;
+
+      // 2. 1日の目標数をローカルストレージに保存
+      localStorage.setItem('flipn_daily_goal', String(dailyGoal));
+
+      alert('プロフィールを保存しました！');
+      setIsProfileOpen(false); // モーダルを閉じる
+    }
+  };
+
+  // アプリ設定を保存する処理
+  const handleSaveSettings = () => {
+    // ローカルストレージに保存してアプリ全体に記憶させる
+    localStorage.setItem('flipn_autoplay', String(isAutoPlay));
+    localStorage.setItem('flipn_audiospeed', audioSpeed);
+    localStorage.setItem('flipn_test_timer', testTimer);
+
+    alert('設定を保存しました！');
+    setIsSettingsOpen(false); // モーダルを閉じる
+  };
 
   const [streak, setStreak] = useState(0);
   const [level, setLevel] = useState(1);
@@ -1258,11 +1294,26 @@ export default function UltimateStudyExperience() {
 
                       {/* メニュー項目 */}
                       <div className="py-1">
-                        <button className={`w-full text-left px-4 py-2 text-xs font-mono transition flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}>
+                        {/* SETTINGS ボタン */}
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false); // ドロップダウンを閉じる
+                            setIsSettingsOpen(true);  // Settings画面を開く
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs font-mono transition flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}
+                        >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
                           SETTINGS
                         </button>
-                        <button className={`w-full text-left px-4 py-2 text-xs font-mono transition flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}>
+
+                        {/* PROFILE ボタン */}
+                        <button
+                          onClick={() => {
+                            setIsUserMenuOpen(false); // ドロップダウンを閉じる
+                            setIsProfileOpen(true);   // Profile画面を開く
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs font-mono transition flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}
+                        >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                           PROFILE
                         </button>
@@ -2220,6 +2271,140 @@ export default function UltimateStudyExperience() {
           isDark={isDark} // 🌟 これを追記してダークモードの情報を渡す！
           onClose={() => setShowShareModal(false)}
         />
+      )}
+
+      {/* ========== PROFILE モーダル (機能連動版) ========== */}
+      {isProfileOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
+            <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>USER PROFILE</h2>
+
+            <div className="space-y-5">
+              {/* 1. 表示名の変更 */}
+              <div>
+                <label className={`block text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>表示名 (Display Name)</label>
+                <input
+                  type="text"
+                  value={editDisplayName}
+                  onChange={(e) => setEditDisplayName(e.target.value)}
+                  placeholder="お名前を入力"
+                  className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                />
+              </div>
+
+              {/* 2. 1日の目標単語数 (増量項目) */}
+              <div>
+                <label className={`block text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>1日の目標学習数 (Daily Goal)</label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    value={dailyGoal}
+                    onChange={(e) => setDailyGoal(Number(e.target.value))}
+                    min="5"
+                    max="200"
+                    className={`w-24 px-4 py-2.5 rounded-xl border text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                  />
+                  <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>単語 / 日</span>
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">5〜200個の間で設定できます</p>
+              </div>
+            </div>
+
+            {/* アクションボタン */}
+            <div className="flex justify-end gap-3 mt-8 border-t pt-4 border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setIsProfileOpen(false)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveProfile}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-500 transition shadow-lg shadow-blue-500/20"
+              >
+                プロフィールを保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== SETTINGS モーダル (項目増量＆機能連動版) ========== */}
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
+            <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>SETTINGS</h2>
+
+            <div className="space-y-5">
+
+              {/* 1. 音声自動再生（トグルスイッチ） */}
+              <div className="flex items-center justify-between p-1">
+                <div>
+                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の自動再生</p>
+                  <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>カードをめくった時に発音を自動再生</p>
+                </div>
+                <button
+                  onClick={() => setIsAutoPlay(!isAutoPlay)}
+                  className={`w-11 h-6 rounded-full relative transition-colors shadow-inner ${isAutoPlay ? 'bg-blue-600' : isDark ? 'bg-slate-700' : 'bg-slate-200'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isAutoPlay ? 'right-1' : 'left-1'}`}></span>
+                </button>
+              </div>
+
+              {/* 2. 音声再生スピード（セレクトボックス） */}
+              <div className="flex items-center justify-between p-1">
+                <div>
+                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の再生速度</p>
+                  <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>リスニング時の発音スピード</p>
+                </div>
+                <select
+                  value={audioSpeed}
+                  onChange={(e) => setAudioSpeed(e.target.value)}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                >
+                  <option value="1.0">1.0x (標準)</option>
+                  <option value="0.8">0.8x (ゆっくり)</option>
+                  <option value="1.2">1.2x (速め)</option>
+                </select>
+              </div>
+
+              {/* 3. クイズの制限時間設定（セレクトボックス） */}
+              <div className="flex items-center justify-between p-1">
+                <div>
+                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>テストの制限時間</p>
+                  <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>4択クイズやテストモード時の1問の制限</p>
+                </div>
+                <select
+                  value={testTimer}
+                  onChange={(e) => setTestTimer(e.target.value)}
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
+                >
+                  <option value="none">制限なし</option>
+                  <option value="5">5秒 (超シビア)</option>
+                  <option value="10">10秒 (標準)</option>
+                  <option value="30">30秒 (ゆったり)</option>
+                </select>
+              </div>
+
+            </div>
+
+            {/* アクションボタン */}
+            <div className="flex justify-end gap-3 mt-8 border-t pt-4 border-slate-200 dark:border-slate-800">
+              <button
+                onClick={() => setIsSettingsOpen(false)}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleSaveSettings}
+                className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-500 transition shadow-lg shadow-blue-500/20"
+              >
+                設定を保存
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>
