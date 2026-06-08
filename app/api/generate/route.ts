@@ -75,6 +75,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Text is empty' }, { status: 400 });
     }
 
+    // 🤖 AIへの命令文（プロンプト）の組み立て部分
+let aiPrompt = `英単語のカードを生成してください。`;
+
+// 🌟 もしユーザーが趣味を設定していたら、プロンプトを強力に書き換える！
+if (userHobby.trim()) {
+  aiPrompt += `
+    【超重要命令】
+    現在、ユーザーは「${userHobby}」に夢中です。
+    生成するすべての英単語の【例文（example）】は、必ず「${userHobby}」に関連した、
+    クスッと笑えるような、または情熱的でリアルなシチュエーションの文章にしてください。
+    一般的な退屈な例文は絶対に禁止します。
+  `;
+}
+
     // 1. テキストから記号を消して単語に分解
     const cleanedText = text.toLowerCase().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()]/g, "");
     const inputWords = cleanedText.split(/\s+/);

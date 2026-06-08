@@ -81,6 +81,11 @@ export default function UltimateStudyExperience() {
   // 4. 新機能管理用の画面開閉State
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
+  const [avatarUrl, setAvatarUrl] = useState('');
+
+  const menuRef = useRef<HTMLDivElement>(null);
+  const avatarButtonRef = useRef<HTMLButtonElement>(null);
+
   const [cards, setCards] = useState<Card[]>([]);
   // 🗂️ デッキ（単語帳）用のState
   const [decks, setDecks] = useState<any[]>([]);
@@ -98,6 +103,9 @@ export default function UltimateStudyExperience() {
   // プロフィール用のState
   const [editDisplayName, setEditDisplayName] = useState(user?.displayName || '');
   const [dailyGoal, setDailyGoal] = useState(20); // 1日の目標単語数（初期値20）
+
+  // 🌟 [配置先] editDisplayName や dailyGoal の並び
+  const [userHobby, setUserHobby] = useState(''); // ユーザーの趣味・推し（例: サッカー、アニメ、K-POP）
 
   // アプリ設定用のState
   const [isAutoPlay, setIsAutoPlay] = useState(true); // 音声自動再生
@@ -153,6 +161,56 @@ export default function UltimateStudyExperience() {
     }
   };
 
+  // 💾 プロフィールと趣味の保存
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles') // 💡 お使いのプロフィールテーブル名に合わせてください
+        .update({
+          display_name: editDisplayName,
+          user_hobby: userHobby,
+          daily_goal: dailyGoal,
+          avatar_url: avatarUrl,
+        })
+        .eq('id', user.id); // ログイン中のユーザーIDで絞り込み
+
+      if (error) throw error;
+
+      // 自分のステートも更新
+      setUser({ ...user, displayName: editDisplayName });
+      showToast('プロフィールをアカウントに保存しました！', 'success');
+      setIsProfileOpen(false);
+    } catch (err) {
+      console.error("プロフィールの保存に失敗:", err);
+      showToast("保存に失敗しました。", "error");
+    }
+  };
+
+  // ⚙️ アプリ設定の保存
+  const handleSaveSettings = async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_autoplay: isAutoPlay,
+          audio_speed: audioSpeed,
+          test_timer: testTimer
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      showToast('アプリ設定をアカウントに保存しました！', 'success');
+      setIsSettingsOpen(false);
+    } catch (err) {
+      console.error("設定の保存に失敗:", err);
+    }
+  };
+
   // 🔄 初回読み込み時やカード数が変わったときにランキングを更新
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -160,19 +218,21 @@ export default function UltimateStudyExperience() {
     }
   }, [activeTab, cards.length]);
 
-  // プロフィールを保存する処理
-  const handleSaveProfile = () => {
-    if (user) {
-      // 1. 現在のuserオブジェクトのdisplayNameを上書き（Firebase等の場合はここで非同期更新）
-      user.displayName = editDisplayName;
-
-      // 2. 1日の目標数をローカルストレージに保存
-      localStorage.setItem('flipn_daily_goal', String(dailyGoal));
-
-      alert('プロフィールを保存しました！');
-      setIsProfileOpen(false); // モーダルを閉じる
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      // メニューの外側、かつ、アイコンボタンの外側をクリックした場合のみ閉じる
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        avatarButtonRef.current &&
+        !avatarButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsUserMenuOpen(false);
+      }
     }
-  };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // 📁 CSV / Ankiインポート処理
   const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,7 +264,7 @@ export default function UltimateStudyExperience() {
       if (newCards.length > 0) {
         // 💡 ここで既存のcardsステートに追加（またはSupabaseにインサート）
         // setCards([...cards, ...newCards]); // 既存のカード配列がある場合
-        alert(`${newCards.length}個の単語をCSVから爆速インポートしました！`);
+        showToast(`${newCards.length}個の単語をCSVから爆速インポートしました！`, 'success');
 
         // AIパートナーに褒めさせる
         triggerAiComment("import");
@@ -245,19 +305,9 @@ export default function UltimateStudyExperience() {
   const handleJoinRoom = () => {
     if (!inputRoomId.trim()) return;
     setCurrentRoomId(inputRoomId);
-    alert(`共有ルーム【${inputRoomId}】に参加しました！このルームの単語帳を仲間と共同編集できます。`);
+    showToast(`共有ルーム【${inputRoomId}】に参加しました！このルームの単語帳を仲間と共同編集できます。`, 'success');
   };
 
-  // アプリ設定を保存する処理
-  const handleSaveSettings = () => {
-    // ローカルストレージに保存してアプリ全体に記憶させる
-    localStorage.setItem('flipn_autoplay', String(isAutoPlay));
-    localStorage.setItem('flipn_audiospeed', audioSpeed);
-    localStorage.setItem('flipn_test_timer', testTimer);
-
-    alert('設定を保存しました！');
-    setIsSettingsOpen(false); // モーダルを閉じる
-  };
 
   const [streak, setStreak] = useState(0);
   const [level, setLevel] = useState(1);
@@ -447,6 +497,35 @@ export default function UltimateStudyExperience() {
     }
   }, []);
 
+  useEffect(() => {
+    const fetchUserSettings = async () => {
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (data && !error) {
+        // ...既存のセット処理
+        setAvatarUrl(data.avatar_url || '');
+      }
+
+      if (data && !error) {
+        // データベースから取得した値をフロントのStateに復元する
+        setEditDisplayName(data.display_name || '');
+        setUserHobby(data.user_hobby || '');
+        setDailyGoal(data.daily_goal || 20);
+        setIsAutoPlay(data.is_autoplay ?? true);
+        setAudioSpeed(data.audio_speed || '1.0');
+        setTestTimer(data.test_timer || 'none');
+      }
+    };
+
+    fetchUserSettings();
+  }, [user]); // user（ログイン状態）が変わったら実行
+
   // 🌟 3. 共有データを取得して、インポート確認ダイアログを出す関数
   const fetchAndPromptImport = async (deckId: string) => {
     try {
@@ -566,6 +645,8 @@ export default function UltimateStudyExperience() {
     }
   }
 
+
+
   const [isRecording, setIsRecording] = useState(false);
   const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
 
@@ -662,6 +743,7 @@ export default function UltimateStudyExperience() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          hobby: userHobby,
           text: text,
           category: selectedCategory !== 'All' ? selectedCategory : 'Camera Scan'
         }),
@@ -845,7 +927,7 @@ export default function UltimateStudyExperience() {
         setNewDeckTitle('');
         setNewDeckDesc('');
         setIsDeckPublic(false);
-        alert('新しい単語帳を作成しました！🎉');
+        showToast('新しい単語帳を作成しました！🎉', 'success');
       }
     } catch (e) {
       console.error("Failed to create deck:", e);
@@ -1400,95 +1482,100 @@ export default function UltimateStudyExperience() {
               /* 🔓 ユーザーがログインしている場合のみ、ドロップダウンメニュー全体を表示 */
               <div className="relative">
                 <button
+                  ref={avatarButtonRef}
                   onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-transform hover:scale-105 overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'
-                    }`}
+                  className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all"
                 >
-                  {user.photoURL ? (
-                    <img
-                      src={user.photoURL}
-                      alt="User Avatar"
-                      className="w-full h-full object-cover"
-                      referrerPolicy="no-referrer"
-                    />
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
                   ) : (
-                    <span className={`text-xs font-black font-mono ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                      {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                    </span>
+                    <div className="w-full h-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                      {(user?.displayName || "U").slice(0, 1).toUpperCase()}
+                    </div>
                   )}
                 </button>
 
                 {/* ドロップダウンメニュー（開閉状態のときのみ表示） */}
+                {/* 📄 アカウントメニュー本体 */}
                 {isUserMenuOpen && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setIsUserMenuOpen(false)}></div>
-                    <div className={`absolute right-0 mt-2 w-48 rounded-xl border shadow-xl overflow-hidden z-50 ${isDark ? 'bg-slate-900 border-slate-800 shadow-black/50' : 'bg-white border-slate-200 shadow-slate-200/50'}`}>
-
-                      {/* ユーザー情報エリア */}
-                      <div className={`px-4 py-3 border-b flex items-center gap-3 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-                        <div className={`w-9 h-9 rounded-full flex items-center justify-center border shrink-0 overflow-hidden ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
-                          {user.photoURL ? (
-                            <img src={user.photoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                          ) : (
-                            <span className={`text-xs font-black font-mono ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>
-                              {user.email ? user.email.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          )}
-                        </div>
-                        <div className="overflow-hidden">
-                          <p className={`text-xs font-bold truncate ${isDark ? 'text-white' : 'text-slate-800'}`}>
-                            {user.displayName || 'ユーザー'}
-                          </p>
-                          <p className={`text-[10px] truncate mt-0.5 ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>
-                            {user.email || 'user@example.com'}
-                          </p>
-                        </div>
+                  <div
+                    ref={menuRef} // 🌟 外側クリック判定用のRef
+                    className={`absolute right-0 mt-3 w-64 rounded-2xl border shadow-xl z-50 overflow-hidden backdrop-blur-md transition-all ${isDark ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'
+                      }`}
+                  >
+                    {/* ヘッダー */}
+                    <div className={`p-4 flex items-center gap-3 border-b ${isDark ? 'border-slate-800/60 bg-slate-950/40' : 'border-slate-50 bg-slate-50/60'}`}>
+                      <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex-shrink-0">
+                        {avatarUrl ? (
+                          <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                        ) : (
+                          <div className="w-full h-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold">
+                            {(user?.displayName || "U").slice(0, 1).toUpperCase()}
+                          </div>
+                        )}
                       </div>
-
-                      {/* メニュー項目 */}
-                      <div className="py-1">
-                        {/* SETTINGS ボタン */}
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false); // ドロップダウンを閉じる
-                            setIsSettingsOpen(true);  // Settings画面を開く
-                          }}
-                          className={`w-full text-left px-4 py-2 text-xs font-mono transition flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                          SETTINGS
-                        </button>
-
-                        {/* PROFILE ボタン */}
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false); // ドロップダウンを閉じる
-                            setIsProfileOpen(true);   // Profile画面を開く
-                          }}
-                          className={`w-full text-left px-4 py-2 text-xs font-mono transition flex items-center gap-2 ${isDark ? 'text-slate-300 hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-50'}`}
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
-                          PROFILE
-                        </button>
-                      </div>
-
-
-
-                      {/* ログアウトボタン */}
-                      <div className={`border-t py-1 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
-                        <button
-                          onClick={() => {
-                            setIsUserMenuOpen(false);
-                            handleLogout();
-                          }}
-                          className={`w-full text-left px-4 py-2 text-xs font-mono font-bold text-red-500 transition flex items-center gap-2 ${isDark ? 'hover:bg-slate-800' : 'hover:bg-red-50'}`}
-                        >
-                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                          LOGOUT
-                        </button>
+                      <div className="truncate">
+                        <h4 className="text-xs font-bold tracking-wide truncate">{user?.displayName || "ゲストユーザー"}</h4>
+                        <p className="text-[10px] text-slate-400 truncate mt-0.5">{user?.email}</p>
                       </div>
                     </div>
-                  </>
+
+                    {/* ステータス（絵文字を排除し、スマートなドットインジケーターに変更） */}
+                    <div className="p-4 space-y-2.5 text-[11px] font-medium border-b border-slate-100 dark:border-slate-800/60">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> 継続日数
+                        </span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">{streak} 日</span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 今日の目標
+                        </span>
+                        <span className="font-bold text-slate-700 dark:text-slate-200">
+                          {Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%
+                        </span>
+                      </div>
+
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-400 flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> マイブーム
+                        </span>
+                        <span className="px-2 py-0.5 text-[10px] rounded-md bg-slate-100 dark:bg-slate-800 font-bold max-w-[100px] truncate">
+                          {userHobby || "未設定"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* ボタンリスト */}
+                    <div className="p-1.5 space-y-0.5">
+                      <button
+                        onClick={() => { setIsProfileOpen(true); setIsUserMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 text-slate-700'
+                          }`}
+                      >
+                        プロフィール編集
+                      </button>
+
+                      <button
+                        onClick={() => { setIsSettingsOpen(true); setIsUserMenuOpen(false); }}
+                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 text-slate-700'
+                          }`}
+                      >
+                        アプリ環境設定
+                      </button>
+
+                      <div className={`my-1 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`} />
+
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-3 py-1.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all"
+                      >
+                        サインアウト
+                      </button>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
@@ -2567,6 +2654,36 @@ export default function UltimateStudyExperience() {
             <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>USER PROFILE</h2>
 
             <div className="space-y-5">
+              <div className="mb-5 flex flex-col items-center gap-3">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-500 shadow-md bg-slate-100 relative group">
+                  {avatarUrl ? (
+                    <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
+                      No Image
+                    </div>
+                  )}
+                </div>
+
+                <label className="cursor-pointer px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-all">
+                  画像を変更する
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setAvatarUrl(reader.result as string); // Base64形式でStateに保存
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                </label>
+              </div>
               {/* 1. 表示名の変更 */}
               <div>
                 <label className={`block text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>表示名 (Display Name)</label>
@@ -2595,6 +2712,28 @@ export default function UltimateStudyExperience() {
                 </div>
                 <p className="text-[10px] text-slate-400 mt-1">5〜200個の間で設定できます</p>
               </div>
+            </div>
+
+            {/* ========================================================
+    [配置先] プロフィールモーダル (isProfileOpen === true) の中
+======================================================== */}
+            <div className="mt-4">
+              <label className={`block text-xs font-black font-mono mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                🎨 YOUR HOBBY / INTERESTS (趣味・推し)
+              </label>
+              <input
+                type="text"
+                value={userHobby}
+                onChange={(e) => setUserHobby(e.target.value)}
+                placeholder="例: サッカー, アニメ, ガジェット, K-POP"
+                className={`w-full px-3 py-2 rounded-xl text-xs border font-bold focus:outline-none transition-all ${isDark
+                  ? 'bg-slate-800 border-slate-705 text-white focus:border-purple-500'
+                  : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-500'
+                  }`}
+              />
+              <p className="text-[10px] text-slate-400 mt-1">
+                ※ここに入力した趣味に合わせて、AIがあなた専用の例文を自動生成するようになります！
+              </p>
             </div>
 
             {/* アクションボタン */}
