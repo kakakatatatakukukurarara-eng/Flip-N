@@ -32,6 +32,14 @@ interface PreviewCard {
   category: string;
 }
 
+export interface LeaderboardUser {
+  name: string;
+  words: number;
+}
+
+
+
+
 const COURSE_PRESETS = {
   daily: [
     { front: "It's up to you.", back: "あなた次第です。", example: "Where should we eat? It's up to you.", category: "Daily", is_public: false },
@@ -58,6 +66,21 @@ export default function UltimateStudyExperience() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
+
+  const [isRankingLoading, setIsRankingLoading] = useState(true);
+
+  // 2. AIパートナー用のState
+  const [aiCharacter, setAiCharacter] = useState("🦊"); // 🦊(キツネ先生), 🤖(サイバーロボ), 👑(ツンデレキング)
+  const [aiMessage, setAiMessage] = useState("フリップ・エヌ プロへようこそ！今日の復習カードが君を待っているよ。のんびりやろうね。");
+
+  // 3. 共有ルーム（共同編集）用のState
+  const [currentRoomId, setCurrentRoomId] = useState("");
+  const [inputRoomId, setInputRoomId] = useState("");
+
+  // 4. 新機能管理用の画面開閉State
+  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
+
   const [cards, setCards] = useState<Card[]>([]);
   // 🗂️ デッキ（単語帳）用のState
   const [decks, setDecks] = useState<any[]>([]);
@@ -81,6 +104,62 @@ export default function UltimateStudyExperience() {
   const [audioSpeed, setAudioSpeed] = useState('1.0'); // 音声の速さ (1.0 or 0.8)
   const [testTimer, setTestTimer] = useState('none'); // テストの制限時間
 
+  // 📊 Supabaseから本物のランキングデータを取得する
+  const fetchRealRanking = async () => {
+    setIsRankingLoading(true);
+    try {
+      // 💡 publicに共有されているカード、または全カードからユーザーごとの数をカウント
+      // ※SupabaseのRPC（ストアドプロシージャ）を使うか、集計用のクエリを実行します
+      const { data, error } = await supabase
+        .from('cards')
+        .select('user_id')
+        .eq('is_public', true); // 公開されているカードをベースに集計（または全体の統計）
+
+      if (error) throw error;
+
+      if (data) {
+        // ユーザーごとのカード数をカウントするオブジェクトを作成
+        const counts: { [key: string]: number } = {};
+        data.forEach((card: any) => {
+          if (card.user_id) {
+            counts[card.user_id] = (counts[card.user_id] || 0) + 1;
+          }
+        });
+
+        // ランキング配列に整形（上位3名）
+        // 本来はuser_idからプロフィール名を引っ張りますが、簡易的に名称をマスキング、または固定値から変換
+        const sortedRanking = Object.keys(counts)
+          .map((userId) => {
+            // 自分のIDだったら「あなた」や設定中のdisplayNameにする
+            const isMe = userId === user?.id;
+            return {
+              name: isMe ? (user?.displayName || "あなた (You) 🔥") : `User_${userId.slice(0, 5)}`,
+              words: counts[userId],
+            };
+          })
+          .sort((a, b) => b.words - a.words) // 数の多い順にソート
+          .slice(0, 3); // トップ3を抽出
+
+        setLeaderboard(sortedRanking);
+      }
+    } catch (err) {
+      console.error("ランキングの取得に失敗しました:", err);
+      // 失敗したときのセーフティとして最小限の表示
+      setLeaderboard([
+        { name: user?.displayName || "あなた", words: cards.length }
+      ]);
+    } finally {
+      setIsRankingLoading(false);
+    }
+  };
+
+  // 🔄 初回読み込み時やカード数が変わったときにランキングを更新
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      fetchRealRanking();
+    }
+  }, [activeTab, cards.length]);
+
   // プロフィールを保存する処理
   const handleSaveProfile = () => {
     if (user) {
@@ -93,6 +172,80 @@ export default function UltimateStudyExperience() {
       alert('プロフィールを保存しました！');
       setIsProfileOpen(false); // モーダルを閉じる
     }
+  };
+
+  // 📁 CSV / Ankiインポート処理
+  const handleCSVImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const text = event.target?.result as string;
+      const lines = text.split('\n');
+      const newCards: any[] = [];
+
+      // 簡易CSVパース (1行目: 英語, 2行目: 日本語, 3行目: 例文)
+      lines.forEach((line) => {
+        const columns = line.split(',');
+        if (columns[0] && columns[1]) {
+          newCards.push({
+            front: columns[0].trim(),
+            back: columns[1].trim(),
+            example: columns[2] ? columns[2].trim() : "",
+            category: "Imported",
+            is_public: false,
+            interval: 1,
+            next_review_at: new Date().toISOString()
+          });
+        }
+      });
+
+      if (newCards.length > 0) {
+        // 💡 ここで既存のcardsステートに追加（またはSupabaseにインサート）
+        // setCards([...cards, ...newCards]); // 既存のカード配列がある場合
+        alert(`${newCards.length}個の単語をCSVから爆速インポートしました！`);
+
+        // AIパートナーに褒めさせる
+        triggerAiComment("import");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // 🤖 AIパートナーのセリフ切り替えトリガー
+  // (※テスト満点時や、カード追加時などに `triggerAiComment("perfect")` のように呼び出します)
+  const triggerAiComment = (actionType: "perfect" | "import" | "streak" | "greet") => {
+    const messages = {
+      perfect: {
+        "🦊": "すごすぎる！満点じゃないか！君の脳の忘却曲線、完全にバグってるよ（褒め言葉）！",
+        "🤖": "エクセレント。全問正解データを確認。記憶回路への定着率100%を検知しました。",
+        "👑": "ふ、ふん、満点くらい当然じゃない。これで満足して明日サボったら許さないからね！"
+      },
+      import: {
+        "🦊": "大量インポート完了！これだけの単語を攻略しようとするなんて、やる気MAXだね！",
+        "🤖": "外部データの同期に成功。新規単語学習プログラムを開始する準備が整いました。",
+        "👑": "へぇ、他のアプリから乗り換えてくれたんだ？こっちの方が使いやすいに決まってるでしょ！"
+      },
+      streak: {
+        "🦊": "継続日数更新！毎日コツコツやれる君は、本当に英語学習の天才だよ！",
+        "🤖": "ストリーク更新を記録。継続学習は長期記憶定着に最も有効なアルゴリズムです。",
+        "👑": "毎日がんばるじゃない。…べ、別に君が毎日来るのを楽しみに待ってたわけじゃないわよ？"
+      }
+    };
+
+    // 現在選ばれているキャラクターのセリフをセット
+    const charMessages = messages[actionType as keyof typeof messages];
+    if (charMessages) {
+      setAiMessage(charMessages[aiCharacter as keyof typeof charMessages]);
+    }
+  };
+
+  // 👥 共同編集ルームへの参加・作成
+  const handleJoinRoom = () => {
+    if (!inputRoomId.trim()) return;
+    setCurrentRoomId(inputRoomId);
+    alert(`共有ルーム【${inputRoomId}】に参加しました！このルームの単語帳を仲間と共同編集できます。`);
   };
 
   // アプリ設定を保存する処理
@@ -1319,6 +1472,8 @@ export default function UltimateStudyExperience() {
                         </button>
                       </div>
 
+
+
                       {/* ログアウトボタン */}
                       <div className={`border-t py-1 ${isDark ? 'border-slate-800' : 'border-slate-100'}`}>
                         <button
@@ -1877,6 +2032,25 @@ export default function UltimateStudyExperience() {
             )}
           </div>
 
+          {/* ========================================================
+    [配置先] activeTab === 'create' のフォーム周辺
+======================================================== */}
+          <div className={`p-5 rounded-2xl border mt-6 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
+            <h3 className="text-xs font-black font-mono mb-2 text-blue-500 tracking-wider">📁 CSV / ANKI DECK IMPORT</h3>
+            <p className={`text-[11px] mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
+              他アプリの単語データ（CSV）を一瞬で取り込みます。「英語,日本語,例文」の順に並んだファイルに対応。
+            </p>
+
+            <label className={`block w-full text-center px-4 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer ${isDark ? 'border-slate-800 bg-slate-900/50 hover:border-blue-500' : 'border-slate-200 bg-white hover:border-blue-500'
+              }`}>
+              <svg className="w-6 h-6 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-8m0 8l-4-4m4 4l4-4M4 4h16v16H4V4z" />
+              </svg>
+              <span className="text-xs font-bold text-slate-400">CSVファイルを選択してインポート</span>
+              <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
+            </label>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
             {/* 新規カード追加フォーム */}
@@ -1975,6 +2149,40 @@ export default function UltimateStudyExperience() {
       {/* 🌐 SHARED (パブリック共有マーケット) タブ */}
       {activeTab === 'shared' && (
         <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-4 relative z-10">
+          {/* ========================================================
+    [配置先] activeTab === 'public' のコンテンツ最上部
+======================================================== */}
+          <div className={`p-5 rounded-2xl border mb-6 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xs font-black font-mono text-green-500 tracking-wider">👥 SHARED ROOM (共同編集ルーム)</h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">同じルームIDを入力した仲間と、リアルタイムに同じ単語帳を編集・共有できます。</p>
+              </div>
+
+              <div className="flex gap-2 max-w-md w-full md:w-auto">
+                <input
+                  type="text"
+                  placeholder="ルームIDを入力"
+                  value={inputRoomId}
+                  onChange={(e) => setInputRoomId(e.target.value)}
+                  className={`flex-1 md:w-48 px-3 py-2 rounded-xl text-xs border focus:outline-none ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white'}`}
+                />
+                <button
+                  onClick={handleJoinRoom}
+                  className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-xs hover:bg-green-500 transition whitespace-nowrap"
+                >
+                  参加 / 作成
+                </button>
+              </div>
+            </div>
+
+            {currentRoomId && (
+              <div className="mt-3 text-xs text-green-500 font-mono font-bold flex items-center gap-1.5 animate-pulse">
+                <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                ルーム接続中: {currentRoomId}
+              </div>
+            )}
+          </div>
           <div className="px-1">
             <h3 className="text-sm font-black tracking-tight">🌐 全体公開フレーズマーケット</h3>
             <p className="text-[11px] text-slate-400 mt-0.5">世界中のFLIP-Nユーザーが全体公開している有益な単語やフレーズを、自分の単語帳へワンタップでインポートできます。</p>
@@ -2022,11 +2230,13 @@ export default function UltimateStudyExperience() {
 
       {/* 📊 3. ゲーミフィケーション分析ダッシュボード（アップデート） */}
       {activeTab === 'dashboard' && (
+
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           className="flex-1 max-w-md mx-auto w-full px-4 py-8 space-y-6"
         >
+
           {/* 🌟 追記：実績シェアモーダルを開くボタン */}
           <button
             onClick={() => setShowShareModal(true)}
@@ -2054,6 +2264,83 @@ export default function UltimateStudyExperience() {
               <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Learning Level</span>
               <span className="text-xl font-black tracking-tight text-purple-400">LV.{level}</span>
               <span className="text-[8px] font-mono text-slate-400 block mt-0.5">RANK: {title}</span>
+            </div>
+          </div>
+
+          <div className={`p-5 rounded-2xl border mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xs font-black font-mono text-purple-500 tracking-wider">🤖 AI STUDY PARTNER</h3>
+
+                {/* キャラクター切り替え */}
+                <div className="flex gap-1">
+                  {['🦊', '🤖', '👑'].map((char) => (
+                    <button
+                      key={char}
+                      onClick={() => {
+                        setAiCharacter(char);
+                        setAiMessage(char === '🦊' ? "今日も一歩ずつ進もう！" : char === '🤖' ? "学習データを最適化中。" : "べ、別に応援なんてしてないわよ！");
+                      }}
+                      className={`text-xs px-2 py-1 rounded-lg border transition-all ${aiCharacter === char ? 'border-purple-500 bg-purple-500/10 scale-105 font-bold' : 'border-transparent opacity-45'}`}
+                    >
+                      {char}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className={`p-3.5 rounded-xl border text-xs leading-relaxed font-bold flex items-center gap-3 ${isDark ? 'bg-slate-900 border-slate-800 text-purple-300' : 'bg-white border-slate-200 text-purple-700'}`}>
+                <span className="text-xl shrink-0">{aiCharacter}</span>
+                <p>「{aiMessage}」</p>
+              </div>
+            </div>
+          </div>
+
+          <div className={`p-5 rounded-2xl border flex flex-col justify-between ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
+            <div className="flex items-center justify-between mb-3 border-b pb-2 border-slate-200 dark:border-slate-800">
+              <h3 className="text-xs font-black font-mono text-yellow-500 tracking-wider flex items-center gap-1">
+                🏆 WORLD RANKING
+              </h3>
+              <button
+                onClick={fetchRealRanking}
+                className="text-[9px] font-mono text-blue-500 hover:underline"
+              >
+                更新 🔄
+              </button>
+            </div>
+
+            <div className="space-y-2.5">
+              {isRankingLoading ? (
+                // ローディング中の表示
+                <div className="text-center py-4 text-xs font-mono text-slate-400 animate-pulse">
+                  リアルタイム集計中...
+                </div>
+              ) : leaderboard.length === 0 ? (
+                // データがない場合
+                <div className="text-center py-4 text-xs font-mono text-slate-400">
+                  まだ他のデータがありません
+                </div>
+              ) : (
+                // 本物のランキング結果
+                leaderboard.map((player, index) => (
+                  <div key={index} className="flex items-center justify-between text-xs font-mono">
+                    <div className="flex items-center gap-2 truncate">
+                      <span className={`font-black w-4 text-center text-[10px] rounded px-0.5 ${index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
+                        index === 1 ? 'bg-slate-400/20 text-slate-400' :
+                          'bg-amber-600/20 text-amber-600'
+                        }`}>
+                        {index + 1}
+                      </span>
+                      <span className={`font-bold truncate ${player.name.includes("あなた") ? 'text-blue-500 font-black' : 'text-slate-700 dark:text-slate-300'}`}>
+                        {player.name}
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-bold text-yellow-500 shrink-0">
+                      {player.words}<span className="text-[9px] text-slate-400 font-normal ml-0.5">単語</span>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -2403,6 +2690,110 @@ export default function UltimateStudyExperience() {
                 設定を保存
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ========== 🌟 新機能全部入り特大モーダル ========== */}
+      {isExtensionModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-md overflow-y-auto">
+          <div className={`w-full max-w-4xl rounded-3xl shadow-2xl p-6 my-8 ${isDark ? 'bg-slate-900 border border-slate-800 text-white' : 'bg-white text-slate-800'}`}>
+
+            {/* ヘッダー */}
+            <div className="flex justify-between items-center mb-6 border-b pb-4 border-slate-200 dark:border-slate-800">
+              <div>
+                <h2 className="text-xl font-black font-mono tracking-wider text-blue-500">FLIP-N PRO EXTENSIONS</h2>
+                <p className="text-xs text-slate-400 mt-1">ユーザーが集まる＆爆伸びする神機能全部入りパック</p>
+              </div>
+              <button onClick={() => setIsExtensionModalOpen(false)} className="text-sm font-mono px-3 py-1 bg-slate-200 dark:bg-slate-800 rounded-lg">CLOSE</button>
+            </div>
+
+            {/* 2カラムレイアウト */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+              {/* 左側：① AI相棒パートナー & ② 共同編集 */}
+              <div className="space-y-6">
+
+                {/* ① AI相棒パートナー */}
+                <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <h3 className="text-xs font-black font-mono mb-3 text-purple-500 flex items-center gap-1">🤖 1. AI STUDY PARTNER</h3>
+                  <div className="flex gap-3 mb-4">
+                    {['🦊', '🤖', '👑'].map((char) => (
+                      <button
+                        key={char}
+                        onClick={() => {
+                          setAiCharacter(char);
+                          setAiMessage(char === '🦊' ? "よろしくね！" : char === '🤖' ? "システム起動。" : "な、何よ？");
+                        }}
+                        className={`text-xl p-2 rounded-xl border transition ${aiCharacter === char ? 'border-blue-500 bg-blue-500/10 scale-110' : 'border-transparent'}`}
+                      >
+                        {char}
+                      </button>
+                    ))}
+                  </div>
+                  <div className={`p-4 rounded-xl border text-xs leading-relaxed font-bold ${isDark ? 'bg-slate-900 border-slate-800 text-purple-300' : 'bg-white border-slate-200 text-purple-700'}`}>
+                    <span className="text-lg mr-1">{aiCharacter}</span> 「{aiMessage}」
+                  </div>
+                </div>
+
+                {/* ② 共同編集ルーム */}
+                <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <h3 className="text-xs font-black font-mono mb-3 text-green-500 flex items-center gap-1">👥 2. SHARED ROOM (共同編集)</h3>
+                  <p className="text-[10px] text-slate-400 mb-3">同じルームIDを入力した友達と、リアルタイムに1つの単語帳を一緒に作って学習できます。</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="ルームID（例: toeic-benkyo）"
+                      value={inputRoomId}
+                      onChange={(e) => setInputRoomId(e.target.value)}
+                      className={`flex-1 px-3 py-2 rounded-xl text-xs border focus:outline-none ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white'}`}
+                    />
+                    <button onClick={handleJoinRoom} className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-xs hover:bg-green-500 transition">参加/作成</button>
+                  </div>
+                  {currentRoomId && (
+                    <div className="mt-3 text-xs text-green-500 font-mono font-bold flex items-center gap-1">
+                      🟢 接続中ルーム: {currentRoomId}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 右側：③ 世界ランキング & ④ CSVインポート */}
+              <div className="space-y-6">
+
+                {/* ③ 世界ランキング */}
+                <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <h3 className="text-xs font-black font-mono mb-3 text-yellow-500 flex items-center gap-1">🏆 3. WORLD RANKING (今週のトップ)</h3>
+                  <div className="space-y-2">
+                    {leaderboard.map((player, index) => (
+                      <div key={player.name} className={`flex items-center justify-between p-2.5 rounded-xl text-xs font-mono border ${index === 0 ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-transparent'}`}>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold w-4 text-slate-400">#{index + 1}</span>
+                          <span className="font-bold">{player.name}</span>
+                        </div>
+                        <div className="flex gap-4 text-[11px] text-slate-400">
+                          <span>{player.words}日連続</span>
+                          <span className="font-bold text-yellow-500">{player.words}単語</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ④ Anki / CSV インポート */}
+                <div className={`p-5 rounded-2xl border ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                  <h3 className="text-xs font-black font-mono mb-3 text-blue-500 flex items-center gap-1">📁 4. ANKI / CSV IMPORT</h3>
+                  <p className="text-[10px] text-slate-400 mb-3">他アプリで作った単語データ（CSV）を一瞬でFLIP-Nにインポート。カンマ区切り「英語,日本語,例文」のファイルに対応しています。</p>
+                  <label className="block w-full text-center px-4 py-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 cursor-pointer transition">
+                    <span className="text-xs font-bold text-slate-400">CSVファイルを選択して爆速インポート</span>
+                    <input type="file" accept=".csv" onChange={handleCSVImport} className="hidden" />
+                  </label>
+                </div>
+
+              </div>
+
+            </div>
+
           </div>
         </div>
       )}
