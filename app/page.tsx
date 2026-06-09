@@ -1979,6 +1979,61 @@ export default function UltimateStudyExperience() {
             </p>
           </section>
 
+          {/* ミニ統計カードエリア */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* 継続日数 */}
+            <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> STREAK RECORD
+              </div>
+              <div className="flex items-end gap-1.5 my-2">
+                <span className="text-4xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">{streak}</span>
+                <span className="text-xs font-bold text-slate-400 pb-1">Days Continuous</span>
+              </div>
+              <p className="text-[9px] font-mono text-slate-500">Keep up the great rhythm!</p>
+            </div>
+
+            {/* 今日の目標達成率 */}
+            <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY'S GOAL PROGRESS
+              </div>
+              <div className="flex justify-between items-end my-1">
+                <span className="text-4xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+                  {Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%
+                </span>
+                <span className="text-[10px] font-mono text-slate-500 font-bold /40">
+                  {dailyMissions.studyCount} / {dailyGoal} WORDS
+                </span>
+              </div>
+              {/* スタイリッシュなプログレスバー */}
+              <div className={`w-full h-1.5 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* アクションショートカットボタン */}
+          <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              onClick={() => setActiveTab('study')} // 👈 これで学習画面にジャンプ！
+              className="p-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-mono font-bold text-xs tracking-wider shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase"
+            >
+              <span>🚀 Start Daily Review</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('manage')} // 👈 これで管理画面にジャンプ！
+              className={`p-4 rounded-xl border font-mono font-bold text-xs tracking-wider hover:bg-slate-800/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
+            >
+              <span>✨ Create & Generate Cards</span>
+            </button>
+          </div>
+
           {/* 🎮 クイックミニクイズセクション */}
           <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
             <div className="flex justify-between items-center mb-3">
@@ -2003,7 +2058,7 @@ export default function UltimateStudyExperience() {
               <div className="space-y-3">
                 {/* 問題文 */}
                 <div className={`p-4 rounded-xl border font-mono text-center transition-all ${innerBoxClass} ${quickQuizStatus === 'correct' ? 'border-green-500/50 bg-green-500/5' :
-                    quickQuizStatus === 'wrong' ? 'border-red-500/50 bg-red-500/5' : ''
+                  quickQuizStatus === 'wrong' ? 'border-red-500/50 bg-red-500/5' : ''
                   }`}>
                   <span className="text-[9px] text-slate-500 block mb-1">
                     {quickQuizStatus === 'correct' ? '✨ CORRECT!' : quickQuizStatus === 'wrong' ? '❌ OOPS!' : '次の英単語の正しい意味は？'}
@@ -2115,60 +2170,6 @@ export default function UltimateStudyExperience() {
             )}
           </section>
 
-          {/* ミニ統計カードエリア */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-
-            {/* 継続日数 */}
-            <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
-              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> STREAK RECORD
-              </div>
-              <div className="flex items-end gap-1.5 my-2">
-                <span className="text-4xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">{streak}</span>
-                <span className="text-xs font-bold text-slate-400 pb-1">Days Continuous</span>
-              </div>
-              <p className="text-[9px] font-mono text-slate-500">Keep up the great rhythm!</p>
-            </div>
-
-            {/* 今日の目標達成率 */}
-            <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
-              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY'S GOAL PROGRESS
-              </div>
-              <div className="flex justify-between items-end my-1">
-                <span className="text-4xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
-                  {Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%
-                </span>
-                <span className="text-[10px] font-mono text-slate-500 font-bold /40">
-                  {dailyMissions.studyCount} / {dailyGoal} WORDS
-                </span>
-              </div>
-              {/* スタイリッシュなプログレスバー */}
-              <div className={`w-full h-1.5 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
-                <div
-                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%` }}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* アクションショートカットボタン */}
-          <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-            <button
-              onClick={() => setActiveTab('study')} // 👈 これで学習画面にジャンプ！
-              className="p-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-mono font-bold text-xs tracking-wider shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase"
-            >
-              <span>🚀 Start Daily Review</span>
-            </button>
-
-            <button
-              onClick={() => setActiveTab('manage')} // 👈 これで管理画面にジャンプ！
-              className={`p-4 rounded-xl border font-mono font-bold text-xs tracking-wider hover:bg-slate-800/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
-            >
-              <span>✨ Create & Generate Cards</span>
-            </button>
-          </div>
           {/* 🌟 新設：すぐ学べる頻出単語パックセクション */}
           <section className="space-y-3">
             <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-blue-400 px-1">

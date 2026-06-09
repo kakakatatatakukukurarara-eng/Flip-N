@@ -69,7 +69,7 @@ const HUGE_DICTIONARY: Record<string, { back: string; example: string }> = {
 
 export async function POST(req: Request) {
   try {
-    const { text, category } = await req.json();
+    const { text, category, userHobby = '' } = await req.json();
     
     if (!text || !text.trim()) {
       return NextResponse.json({ error: 'Text is empty' }, { status: 400 });
