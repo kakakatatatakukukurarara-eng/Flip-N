@@ -78,6 +78,12 @@ export default function UltimateStudyExperience() {
   const [currentRoomId, setCurrentRoomId] = useState("");
   const [inputRoomId, setInputRoomId] = useState("");
 
+  // 🎮 ミニクイズ用のState
+  const [quickQuizCard, setQuickQuizCard] = useState<any>(null); // 出題するカード
+  const [quickQuizOptions, setQuickQuizOptions] = useState<string[]>([]); // 選択肢
+  const [quickQuizStatus, setQuickQuizStatus] = useState<'idle' | 'correct' | 'wrong'>('idle'); // 判定ステータス
+  const [selectedOption, setSelectedOption] = useState<string | null>(null); // ユーザーが選んだ選択肢
+
   // 4. 新機能管理用の画面開閉State
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
@@ -85,6 +91,9 @@ export default function UltimateStudyExperience() {
 
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
+
+  // 'home' = ホーム画面, 'study' = 単語カード/学習画面
+  const [currentScreen, setCurrentScreen] = useState<'home' | 'study'>('home');
 
   const [cards, setCards] = useState<Card[]>([]);
   // 🗂️ デッキ（単語帳）用のState
@@ -98,7 +107,7 @@ export default function UltimateStudyExperience() {
   const [displayCards, setDisplayCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('study');
+  const [activeTab, setActiveTab] = useState<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('home');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   // プロフィール用のState
   const [editDisplayName, setEditDisplayName] = useState(user?.displayName || '');
@@ -161,6 +170,181 @@ export default function UltimateStudyExperience() {
     }
   };
 
+  const PRESET_DECKS = [
+    {
+      id: 'essential_100',
+      title: '最頻出英単語 100選',
+      description: '日常会話からTOEICまで、絶対に落とせない必須の100単語。',
+      icon: '🔥',
+      category: 'Essential',
+      cards: [
+        { front: 'absolutely', back: '完全に、絶対に', example: 'You are absolutely right.', category: 'Essential' },
+        { front: 'accept', back: '受け入れる', example: 'I accept your apology.', category: 'Essential' },
+        { front: 'accomplish', back: '成し遂げる', example: 'We can accomplish this together.', category: 'Essential' },
+        { front: 'accurate', back: '正確な', example: 'Is this information accurate?', category: 'Essential' },
+        { front: 'achieve', back: '達成する', example: 'She achieved her goal.', category: 'Essential' },
+        { front: 'actually', back: '実は、実際に', example: 'Actually, I have a question.', category: 'Essential' },
+        { front: 'adapt', back: '適応する', example: 'It is hard to adapt to a new culture.', category: 'Essential' },
+        { front: 'additionally', back: 'さらに', example: 'Additionally, we need more time.', category: 'Essential' },
+        { front: 'affect', back: '影響を与える', example: 'The weather will affect our plans.', category: 'Essential' },
+        { front: 'alternative', back: '代わりの、選択肢', example: 'We need to find an alternative plan.', category: 'Essential' },
+        { front: 'analyze', back: '分析する', example: 'We need to analyze the data.', category: 'Essential' },
+        { front: 'apparent', back: '明らかな', example: 'It became apparent that he was lying.', category: 'Essential' },
+        { front: 'approach', back: '接近する、アプローチ', example: 'We need a new approach.', category: 'Essential' },
+        { front: 'appropriate', back: '適切な', example: 'Is this appropriate for a wedding?', category: 'Essential' },
+        { front: 'assume', back: '仮定する、思い込む', example: 'Don\'t assume anything.', category: 'Essential' },
+        { front: 'available', back: '利用可能な、手が空いている', example: 'Are you available tomorrow?', category: 'Essential' },
+        { front: 'benefit', back: '利益、恩恵', example: 'There are many benefits to exercising.', category: 'Essential' },
+        { front: 'capable', back: '能力がある', example: 'She is capable of handling this.', category: 'Essential' },
+        { front: 'circumstance', back: '状況', example: 'Under no circumstances should you do this.', category: 'Essential' },
+        { front: 'colleague', back: '同僚', example: 'He is my former colleague.', category: 'Essential' },
+        { front: 'comfortable', back: '快適な', example: 'This chair is very comfortable.', category: 'Essential' },
+        { front: 'commit', back: '約束する、専念する', example: 'I commit to finishing this project.', category: 'Essential' },
+        { front: 'complicated', back: '複雑な', example: 'The rules are quite complicated.', category: 'Essential' },
+        { front: 'concentrate', back: '集中する', example: 'I need to concentrate on my study.', category: 'Essential' },
+        { front: 'conclude', back: '結論づける', example: 'What did you conclude?', category: 'Essential' },
+        { front: 'consequence', back: '結果、影響', example: 'Actions have consequences.', category: 'Essential' },
+        { front: 'consider', back: 'よく考える', example: 'Please consider my offer.', category: 'Essential' },
+        { front: 'consistent', back: '一貫した', example: 'We need to be consistent.', category: 'Essential' },
+        { front: 'contribute', back: '貢献する', example: 'He contributed a lot to the team.', category: 'Essential' },
+        { front: 'convince', back: '納得させる', example: 'I tried to convince him.', category: 'Essential' },
+        { front: 'crucial', back: '極めて重要な', example: 'This step is crucial.', category: 'Essential' },
+        { front: 'currently', back: '現在は', example: 'I am currently working from home.', category: 'Essential' },
+        { front: 'decrease', back: '減る、減らす', example: 'Sales have decreased this month.', category: 'Essential' },
+        { front: 'define', back: '定義する', example: 'How do you define success?', category: 'Essential' },
+        { front: 'definitely', back: '間違いなく', example: 'I will definitely be there.', category: 'Essential' },
+        { front: 'demonstrate', back: '実演する、証明する', example: 'Let me demonstrate how it works.', category: 'Essential' },
+        { front: 'depend', back: '頼る、次第である', example: 'It depends on the weather.', category: 'Essential' },
+        { front: 'despite', back: '〜にもかかわらず', example: 'We enjoyed it despite the rain.', category: 'Essential' },
+        { front: 'determine', back: '決定する', example: 'We must determine the cause.', category: 'Essential' },
+        { front: 'development', back: '発達、開発', example: 'Software development takes time.', category: 'Essential' },
+        { front: 'discover', back: '発見する', example: 'They discovered a new island.', category: 'Essential' },
+        { front: 'efficiency', back: '効率', example: 'We need to improve efficiency.', category: 'Essential' },
+        { front: 'emphasize', back: '強調する', example: 'I want to emphasize this point.', category: 'Essential' },
+        { front: 'enable', back: '可能にする', example: 'This tool enables you to work faster.', category: 'Essential' },
+        { front: 'encourage', back: '励ます、促す', example: 'My parents always encouraged me.', category: 'Essential' },
+        { front: 'environment', back: '環境', example: 'We must protect the environment.', category: 'Essential' },
+        { front: 'establish', back: '設立する、確立する', example: 'The company was established in 2000.', category: 'Essential' },
+        { front: 'evaluate', back: '評価する', example: 'We need to evaluate the results.', category: 'Essential' },
+        { front: 'eventually', back: '最終的には', example: 'Eventually, he found a job.', category: 'Essential' },
+        { front: 'evidence', back: '証拠', example: 'Is there any evidence?', category: 'Essential' },
+        { front: 'expect', back: '予期する、期待する', example: 'I expect to see you tomorrow.', category: 'Essential' },
+        { front: 'experience', back: '経験', example: 'She has a lot of experience.', category: 'Essential' },
+        { front: 'explore', back: '探検する、調査する', example: 'Let\'s explore the city.', category: 'Essential' },
+        { front: 'factor', back: '要因', example: 'Money was a major factor.', category: 'Essential' },
+        { front: 'familiar', back: 'よく知っている、なじみのある', example: 'You look familiar.', category: 'Essential' },
+        { front: 'flexible', back: '柔軟な', example: 'My schedule is flexible.', category: 'Essential' },
+        { front: 'frequently', back: '頻繁に', example: 'I frequently visit that cafe.', category: 'Essential' },
+        { front: 'generate', back: '生み出す', example: 'This idea will generate revenue.', category: 'Essential' },
+        { front: 'gradually', back: '徐々に', example: 'Things are gradually improving.', category: 'Essential' },
+        { front: 'guarantee', back: '保証する', example: 'I cannot guarantee success.', category: 'Essential' },
+        { front: 'hesitate', back: 'ためらう', example: 'Don\'t hesitate to ask questions.', category: 'Essential' },
+        { front: 'identify', back: '特定する', example: 'Can you identify the suspect?', category: 'Essential' },
+        { front: 'ignore', back: '無視する', example: 'Please ignore my last email.', category: 'Essential' },
+        { front: 'immediately', back: 'すぐに', example: 'Call me immediately.', category: 'Essential' },
+        { front: 'impact', back: '影響', example: 'The impact was huge.', category: 'Essential' },
+        { front: 'improve', back: '改善する', example: 'I want to improve my English.', category: 'Essential' },
+        { front: 'indicate', back: '示す', example: 'The map indicates the location.', category: 'Essential' },
+        { front: 'influence', back: '影響（力）', example: 'She has a good influence on him.', category: 'Essential' },
+        { front: 'initial', back: '最初の', example: 'My initial reaction was surprise.', category: 'Essential' },
+        { front: 'innovative', back: '革新的な', example: 'They launched an innovative product.', category: 'Essential' },
+        { front: 'instead', back: '代わりに', example: 'Let\'s go there instead.', category: 'Essential' },
+        { front: 'investigate', back: '調査する', example: 'The police will investigate.', category: 'Essential' },
+        { front: 'involve', back: '巻き込む、含む', example: 'The job involves traveling.', category: 'Essential' },
+        { front: 'issue', back: '問題、発行する', example: 'That is not the main issue.', category: 'Essential' },
+        { front: 'justify', back: '正当化する', example: 'How can you justify your actions?', category: 'Essential' },
+        { front: 'knowledge', back: '知識', example: 'Knowledge is power.', category: 'Essential' },
+        { front: 'maintain', back: '維持する', example: 'It is hard to maintain weight.', category: 'Essential' },
+        { front: 'manage', back: '管理する、なんとかやり遂げる', example: 'How did you manage to do that?', category: 'Essential' },
+        { front: 'mention', back: '言及する', example: 'He didn\'t mention anything about it.', category: 'Essential' },
+        { front: 'necessary', back: '必要な', example: 'Is it really necessary?', category: 'Essential' },
+        { front: 'observe', back: '観察する', example: 'We need to observe the changes.', category: 'Essential' },
+        { front: 'obtain', back: '手に入れる', example: 'How can I obtain a visa?', category: 'Essential' },
+        { front: 'obviously', back: '明らかに', example: 'Obviously, he is upset.', category: 'Essential' },
+        { front: 'occur', back: '起こる', example: 'When did the accident occur?', category: 'Essential' },
+        { front: 'opportunity', back: '機会', example: 'This is a great opportunity.', category: 'Essential' },
+        { front: 'organize', back: '組織する、整理する', example: 'I need to organize my desk.', category: 'Essential' },
+        { front: 'participate', back: '参加する', example: 'Everyone must participate.', category: 'Essential' },
+        { front: 'particular', back: '特定の、好みがうるさい', example: 'I have no particular plans.', category: 'Essential' },
+        { front: 'perform', back: '実行する、演じる', example: 'She will perform on stage.', category: 'Essential' },
+        { front: 'perspective', back: '観点、見方', example: 'From my perspective, it is wrong.', category: 'Essential' },
+        { front: 'potential', back: '可能性、潜在的な', example: 'He has great potential.', category: 'Essential' },
+        { front: 'prepare', back: '準備する', example: 'I must prepare for the exam.', category: 'Essential' },
+        { front: 'prevent', back: '防ぐ', example: 'We must prevent this disease.', category: 'Essential' },
+        { front: 'previous', back: '前の', example: 'Do you have previous experience?', category: 'Essential' },
+        { front: 'provide', back: '提供する', example: 'They provide free coffee.', category: 'Essential' },
+        { front: 'purpose', back: '目的', example: 'What is the purpose of this meeting?', category: 'Essential' },
+        { front: 'recognize', back: '認識する、見覚えがある', example: 'I didn\'t recognize you.', category: 'Essential' },
+        { front: 'recommend', back: '勧める', example: 'I highly recommend this book.', category: 'Essential' },
+        { front: 'reflect', back: '反射する、反映する', example: 'The results reflect our hard work.', category: 'Essential' },
+        { front: 'require', back: '必要とする', example: 'This job requires patience.', category: 'Essential' }
+      ]
+    },
+    {
+      id: 'business_boost',
+      title: 'ビジネス英語 START PACK',
+      description: 'メールやミーティングで頻出する、オフィス必須のスマート表現。',
+      icon: '💼',
+      category: 'Business',
+      cards: [
+        { front: 'implement', back: '（計画などを）実行する、実施する', example: 'We will implement the new strategy next week.', category: 'Business' },
+        { front: 'feasible', back: '実現可能な', example: 'Is this project budget feasible?', category: 'Business' },
+        { front: 'agenda', back: '議題、協議事項', example: 'Let\'s review today\'s agenda.', category: 'Business' },
+        { front: 'align', back: 'すり合わせる、連携する', example: 'We need to align our goals.', category: 'Business' },
+        { front: 'attach', back: '添付する', example: 'Please find the attached file.', category: 'Business' },
+        { front: 'budget', back: '予算', example: 'We are over budget this quarter.', category: 'Business' },
+        { front: 'clarify', back: '明確にする', example: 'Could you clarify this point?', category: 'Business' },
+        { front: 'collaborate', back: '協力する、共同作業する', example: 'We will collaborate with them.', category: 'Business' },
+        { front: 'deadline', back: '締め切り', example: 'The deadline is next Friday.', category: 'Business' },
+        { front: 'feedback', back: 'フィードバック、意見', example: 'I appreciate your feedback.', category: 'Business' },
+        { front: 'negotiate', back: '交渉する', example: 'We need to negotiate the price.', category: 'Business' },
+        { front: 'objective', back: '目的、目標', example: 'Our main objective is growth.', category: 'Business' },
+        { front: 'overview', back: '概要', example: 'Can you give me a brief overview?', category: 'Business' },
+        { front: 'pending', back: '保留中の', example: 'The payment is still pending.', category: 'Business' },
+        { front: 'priority', back: '優先順位、優先事項', example: 'Safety is our top priority.', category: 'Business' },
+        { front: 'proposal', back: '提案、企画書', example: 'Did you read my proposal?', category: 'Business' },
+        { front: 'revenue', back: '収益、収入', example: 'Our revenue increased by 10%.', category: 'Business' },
+        { front: 'schedule', back: '予定、スケジュール', example: 'Let\'s schedule a meeting.', category: 'Business' },
+        { front: 'strategy', back: '戦略', example: 'We need a new marketing strategy.', category: 'Business' },
+        { front: 'submit', back: '提出する', example: 'Please submit the report by 5 PM.', category: 'Business' },
+        { front: 'update', back: '最新情報、更新する', example: 'Please give me an update.', category: 'Business' },
+        { front: 'urgent', back: '緊急の', example: 'This matter is urgent.', category: 'Business' },
+        { front: 'workflow', back: '作業手順、ワークフロー', example: 'We need to optimize our workflow.', category: 'Business' },
+        { front: 'brainstorm', back: 'ブレインストーミングする', example: 'Let\'s brainstorm some ideas.', category: 'Business' },
+        { front: 'wrap up', back: '終わりにする、まとめる', example: 'Let\'s wrap up the meeting.', category: 'Business' }
+      ]
+    },
+    {
+      id: 'travel_quick',
+      title: '海外旅行すぐ使えるフレーズ',
+      description: '空港、ホテル、レストランまでこれだけで安心のフレーズ集。',
+      icon: '✈️',
+      category: 'Travel',
+      cards: [
+        { front: 'Can I check my baggage?', back: '荷物を預かってもらえますか？', example: 'At the hotel reception.', category: 'Travel' },
+        { front: 'Where is the restroom?', back: 'トイレはどこですか？', example: 'Excuse me, where is the restroom?', category: 'Travel' },
+        { front: 'I\'d like to check in, please.', back: 'チェックインをお願いします。', example: 'Arriving at the hotel.', category: 'Travel' },
+        { front: 'Can I have the menu, please?', back: 'メニューを見せてもらえますか？', example: 'At the restaurant.', category: 'Travel' },
+        { front: 'Check, please.', back: 'お会計をお願いします。', example: 'After finishing your meal.', category: 'Travel' },
+        { front: 'How much is this?', back: 'これはいくらですか？', example: 'When shopping for souvenirs.', category: 'Travel' },
+        { front: 'Do you take credit cards?', back: 'クレジットカードは使えますか？', example: 'Before paying at a store.', category: 'Travel' },
+        { front: 'Could you take a picture of us?', back: '写真を撮ってもらえませんか？', example: 'Asking a passerby.', category: 'Travel' },
+        { front: 'I have a reservation under [Name].', back: '[名前]で予約しています。', example: 'I have a reservation under Smith.', category: 'Travel' },
+        { front: 'Is breakfast included?', back: '朝食は含まれていますか？', example: 'Confirming hotel details.', category: 'Travel' },
+        { front: 'Can you speak a little slower?', back: 'もう少しゆっくり話してもらえますか？', example: 'When you can\'t catch the words.', category: 'Travel' },
+        { front: 'I\'m just looking, thank you.', back: '見ているだけです、ありがとう。', example: 'When a shop clerk asks to help.', category: 'Travel' },
+        { front: 'Could we have a table for two?', back: '2人用の席をお願いできますか？', example: 'Entering a restaurant.', category: 'Travel' },
+        { front: 'Tap water is fine.', back: '水道水で大丈夫です。', example: 'When asked about drinks.', category: 'Travel' },
+        { front: 'Is it within walking distance?', back: '歩いて行ける距離ですか？', example: 'Asking for directions.', category: 'Travel' },
+        { front: 'I think I\'m lost.', back: '道に迷ったみたいです。', example: 'Asking for help on the street.', category: 'Travel' },
+        { front: 'Keep the change.', back: 'お釣りはとっておいてください。', example: 'Leaving a tip for a taxi driver.', category: 'Travel' },
+        { front: 'Can I get a late checkout?', back: 'レイトチェックアウトは可能ですか？', example: 'Calling the front desk.', category: 'Travel' },
+        { front: 'What do you recommend?', back: 'おすすめは何ですか？', example: 'Ordering at a restaurant.', category: 'Travel' },
+        { front: 'I need a doctor.', back: '医者を呼んでください。', example: 'In case of a medical emergency.', category: 'Travel' }
+      ]
+    }
+  ];
+
   // 💾 プロフィールと趣味の保存
   const handleSaveProfile = async () => {
     if (!user) return;
@@ -187,6 +371,36 @@ export default function UltimateStudyExperience() {
       showToast("保存に失敗しました。", "error");
     }
   };
+
+  // 🎮 ミニクイズを生成する関数
+  const generateQuickQuiz = () => {
+    if (cards.length < 4) return; // 選択肢を作るために最低4枚必要
+
+    // 1. ランダムに正解カードを1枚選ぶ
+    const correctCard = cards[Math.floor(Math.random() * cards.length)];
+
+    // 2. 不正解の選択肢を3つ選ぶ（正解以外からランダム）
+    const dummies = cards
+      .filter(c => c.id !== correctCard.id)
+      .sort(() => 0.5 - Math.random())
+      .slice(0, 3)
+      .map(c => c.back);
+
+    // 3. 正解と不正解を混ぜてシャッフル
+    const options = [...dummies, correctCard.back].sort(() => 0.5 - Math.random());
+
+    setQuickQuizCard(correctCard);
+    setQuickQuizOptions(options);
+    setQuickQuizStatus('idle');
+    setSelectedOption(null);
+  };
+
+  // 🌟 ホーム画面が開いた時にクイズを1問作る
+  useEffect(() => {
+    if (activeTab === 'home' && cards.length >= 4 && !quickQuizCard) {
+      generateQuickQuiz();
+    }
+  }, [activeTab, cards]);
 
   // ⚙️ アプリ設定の保存
   const handleSaveSettings = async () => {
@@ -309,7 +523,9 @@ export default function UltimateStudyExperience() {
   };
 
 
+  // 📄 page.tsx の State定義が集まっている場所
   const [streak, setStreak] = useState(0);
+  const [lastStudyDate, setLastStudyDate] = useState(''); // 最後に勉強した日付
   const [level, setLevel] = useState(1);
   const [title, setTitle] = useState('BEGINNER');
   const [showShareModal, setShowShareModal] = useState(false); // 🌟 モーダルの開閉管理
@@ -508,8 +724,37 @@ export default function UltimateStudyExperience() {
         .single();
 
       if (data && !error) {
-        // ...既存のセット処理
+        setEditDisplayName(data.display_name || '');
+        setUserHobby(data.user_hobby || '');
+        setDailyGoal(data.daily_goal || 20);
         setAvatarUrl(data.avatar_url || '');
+
+        // 🌟 ここからストリークの自動判定ロジック
+        const savedStreak = data.streak_count || 0;
+        const savedLastDate = data.last_study_date || '';
+
+        if (savedLastDate) {
+          const today = new Date();
+          const lastDate = new Date(savedLastDate);
+
+          // 今日と最後に勉強した日の「日数の差」を計算
+          const diffTime = today.setHours(0, 0, 0, 0) - lastDate.setHours(0, 0, 0, 0);
+          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays > 1) {
+            // 💡 2日以上あいていたらサボり確定なのでストリークを0にリセット
+            setStreak(0);
+            setLastStudyDate('');
+            // データベース側もリセット
+            await supabase.from('profiles').update({ streak_count: 0, last_study_date: null }).eq('id', user.id);
+          } else {
+            // 保持、または今日すでにやっていればそのままの日数をセット
+            setStreak(savedStreak);
+            setLastStudyDate(savedLastDate);
+          }
+        } else {
+          setStreak(0);
+        }
       }
 
       if (data && !error) {
@@ -578,6 +823,43 @@ export default function UltimateStudyExperience() {
       }
     } catch (err) {
       console.error('インポートエラー:', err);
+    }
+  };
+
+  // 🎯 勉強が完了した時の関数（お使いの完了処理関数の中に追記してください）
+  const handleStudyComplete = async () => {
+    if (!user) return;
+
+    // 今日の日付を「YYYY-MM-DD」形式で取得
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    // ⚠️ 今日すでに勉強済みの場合は、ストリークは増やさない（1日に何度も増えるのを防ぐ）
+    if (lastStudyDate === todayStr) {
+      console.log("今日はもうストリーク更新済みです！");
+      return;
+    }
+
+    // ストリークを1増やす（昨日やっていれば継続、リセットされていれば1日目になる）
+    const newStreak = streak + 1;
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          streak_count: newStreak,
+          last_study_date: todayStr // 最終勉強日を今日にする
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      // フロントエンドの画面（State）も更新
+      setStreak(newStreak);
+      setLastStudyDate(todayStr);
+
+      alert(`🔥 ストリーク達成！ ${newStreak} 日連続勉強中！`);
+    } catch (err) {
+      console.error("ストリークの更新に失敗:", err);
     }
   };
 
@@ -1459,6 +1741,13 @@ export default function UltimateStudyExperience() {
           {/* タブナビゲーション */}
           <nav className={`flex p-1 rounded-xl border overflow-x-auto w-full md:w-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
             {[
+              {
+                id: 'home', label: 'HOME', icon: (
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                  </svg>
+                )
+              },
               { id: 'study', label: 'STUDY', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg> },
               { id: 'test', label: 'TEST', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
               { id: 'manage', label: 'MANAGE', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
@@ -1672,7 +1961,282 @@ export default function UltimateStudyExperience() {
         </div>
       )}
 
+
       {/* メインコンテンツ */}
+      {/* ========================================================
+    🏠 1. ホーム画面（新設ダッシュボード）
+======================================================== */}
+      {activeTab === 'home' && (
+        <main className="flex-grow flex flex-col p-6 max-w-4xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+
+          {/* プレビュー・ウェルカムメッセージ */}
+          <section className="py-4">
+            <h2 className="text-2xl font-black tracking-tight">
+              おかえりなさい、{user?.displayName || "ゲスト"}さん
+            </h2>
+            <p className="text-[11px] text-slate-400 font-medium mt-1">
+              現在のマイブーム: <span className="text-purple-400 font-bold">{userHobby || "未設定"}</span>
+            </p>
+          </section>
+
+          {/* 🎮 クイックミニクイズセクション */}
+          <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-emerald-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> DAILY QUICK QUIZ
+              </div>
+              {quickQuizStatus !== 'idle' && (
+                <button
+                  onClick={generateQuickQuiz}
+                  className="text-[9px] font-mono font-bold text-blue-400 hover:underline"
+                >
+                  NEXT QUESTION →
+                </button>
+              )}
+            </div>
+
+            {cards.length < 4 ? (
+              <div className="py-4 text-center">
+                <p className="text-[10px] text-slate-500 font-mono">クイズを開始するには単語を4枚以上登録してください</p>
+              </div>
+            ) : quickQuizCard && (
+              <div className="space-y-3">
+                {/* 問題文 */}
+                <div className={`p-4 rounded-xl border font-mono text-center transition-all ${innerBoxClass} ${quickQuizStatus === 'correct' ? 'border-green-500/50 bg-green-500/5' :
+                    quickQuizStatus === 'wrong' ? 'border-red-500/50 bg-red-500/5' : ''
+                  }`}>
+                  <span className="text-[9px] text-slate-500 block mb-1">
+                    {quickQuizStatus === 'correct' ? '✨ CORRECT!' : quickQuizStatus === 'wrong' ? '❌ OOPS!' : '次の英単語の正しい意味は？'}
+                  </span>
+                  <span className="text-sm font-black text-slate-800 tracking-wide uppercase">
+                    {quickQuizCard.front}
+                  </span>
+                </div>
+
+                {/* 選択肢 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {quickQuizOptions.map((option, idx) => {
+                    // 色判定ロジック
+                    const isCorrectOption = option === quickQuizCard.back;
+                    const isSelected = selectedOption === option;
+
+                    let btnClass = innerBoxClass;
+                    if (quickQuizStatus !== 'idle') {
+                      if (isCorrectOption) btnClass = "border-green-500 bg-green-500/20 text-green-400 font-bold";
+                      else if (isSelected) btnClass = "border-red-500 bg-red-500/20 text-red-400";
+                      else btnClass = "opacity-40 border-slate-800";
+                    }
+
+                    return (
+                      <button
+                        key={idx}
+                        disabled={quickQuizStatus !== 'idle'}
+                        onClick={() => {
+                          setSelectedOption(option);
+                          if (option === quickQuizCard.back) {
+                            setQuickQuizStatus('correct');
+                            speak('Excellent!'); // 音声機能があれば
+                          } else {
+                            setQuickQuizStatus('wrong');
+                            speak('Wrong answer');
+                          }
+                        }}
+                        className={`p-2.5 rounded-xl border text-[11px] font-medium text-left transition-all active:scale-[0.98] ${btnClass}`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="truncate">{option}</span>
+                          {quickQuizStatus !== 'idle' && isCorrectOption && <span>check</span>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 正解後の解説（例文など） */}
+                {quickQuizStatus !== 'idle' && quickQuizCard.example && (
+                  <p className="text-[10px] text-slate-500 italic text-center animate-in fade-in duration-500">
+                    Example: {quickQuizCard.example}
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+
+          {/* 🔥 新設：要復習単語セクション */}
+          <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
+            <div className="flex justify-between items-center mb-3">
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-red-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> NEEDS REVIEW
+              </div>
+              {/* 要復習の件数をバッジで表示（例：cardsから復習対象をフィルターした件数） */}
+              <span className="text-[9px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-md">
+                {cards.filter(c => c.interval <= 1 || c.repetition === 0).length} CARDS
+              </span>
+            </div>
+
+            {/* 復習対象がある場合 */}
+            {cards.filter(c => c.interval <= 1 || c.repetition === 0).length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-[11px] text-slate-400">
+                  最近 「AGAIN」 を選んだ単語、または記憶が薄れている単語があります。忘れる前に復習しましょう！
+                </p>
+
+                {/* 直近の苦手単語を3つだけチラ見せするリスト */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {cards
+                    .filter(c => c.interval <= 1 || c.repetition === 0)
+                    .slice(0, 3)
+                    .map((card, idx) => (
+                      <div key={idx} className={`p-2.5 rounded-xl border text-center font-mono ${innerBoxClass}`}>
+                        <div className="text-xs font-bold text-slate-800 truncate">{card.front}</div>
+                        <div className="text-[9px] text-slate-500 truncate mt-0.5">{card.back}</div>
+                      </div>
+                    ))}
+                </div>
+
+                <button
+                  onClick={() => {
+                    // 💡 復習モード専用のフィルターをかけるロジックをここに挟むことも可能
+                    setSelectedCategory('All'); // 一旦全カテゴリにして学習画面へ
+                    setActiveTab('study');
+                  }}
+                  className="w-full mt-2 py-2.5 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl text-[11px] font-mono font-bold tracking-wider transition flex items-center justify-center gap-2 uppercase"
+                >
+                  <span>🎯 苦手な単語を今すぐ集中復習</span>
+                </button>
+              </div>
+            ) : (
+              /* 復習対象がない（完璧な）場合 */
+              <div className="text-center py-4">
+                <span className="text-xl block mb-1">🎉</span>
+                <p className="text-[11px] font-mono text-emerald-400 font-bold">ALL CARDS ARE UP TO DATE! PERFECT!</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">現在、復習が必要な単語はありません。素晴らしい記憶力です！</p>
+              </div>
+            )}
+          </section>
+
+          {/* ミニ統計カードエリア */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+            {/* 継続日数 */}
+            <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> STREAK RECORD
+              </div>
+              <div className="flex items-end gap-1.5 my-2">
+                <span className="text-4xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">{streak}</span>
+                <span className="text-xs font-bold text-slate-400 pb-1">Days Continuous</span>
+              </div>
+              <p className="text-[9px] font-mono text-slate-500">Keep up the great rhythm!</p>
+            </div>
+
+            {/* 今日の目標達成率 */}
+            <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
+              <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY'S GOAL PROGRESS
+              </div>
+              <div className="flex justify-between items-end my-1">
+                <span className="text-4xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+                  {Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%
+                </span>
+                <span className="text-[10px] font-mono text-slate-500 font-bold /40">
+                  {dailyMissions.studyCount} / {dailyGoal} WORDS
+                </span>
+              </div>
+              {/* スタイリッシュなプログレスバー */}
+              <div className={`w-full h-1.5 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
+                  style={{ width: `${Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* アクションショートカットボタン */}
+          <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              onClick={() => setActiveTab('study')} // 👈 これで学習画面にジャンプ！
+              className="p-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-mono font-bold text-xs tracking-wider shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase"
+            >
+              <span>🚀 Start Daily Review</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('manage')} // 👈 これで管理画面にジャンプ！
+              className={`p-4 rounded-xl border font-mono font-bold text-xs tracking-wider hover:bg-slate-800/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
+            >
+              <span>✨ Create & Generate Cards</span>
+            </button>
+          </div>
+          {/* 🌟 新設：すぐ学べる頻出単語パックセクション */}
+          <section className="space-y-3">
+            <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-blue-400 px-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> RECOMMENDED STARTER DECKS
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {PRESET_DECKS.map((deck) => (
+                <div
+                  key={deck.id}
+                  className={`p-5 rounded-2xl border flex flex-col justify-between shadow-xs transition-all hover:scale-[1.01] ${subContainerClass}`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xl">{deck.icon}</span>
+                      <span className="text-[9px] font-mono font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded">
+                        {deck.cards.length} WORDS
+                      </span>
+                    </div>
+                    <h4 className="text-sm font-black tracking-tight text-slate-800">{deck.title}</h4>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                      {deck.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        // 📄 すでに持っている単語帳（cardsのState）に、このパックの単語をガチャンと結合する
+                        // 重複を避ける場合は id や front で一意にフィルターすると親切です
+                        const updatedCards = [...cards];
+
+                        deck.cards.forEach(presetCard => {
+                          // 簡易的な重複チェック（すでに同じスペルがあればスキップ）
+                          if (!updatedCards.some(c => c.front.toLowerCase() === presetCard.front.toLowerCase())) {
+                            updatedCards.push({
+                              ...presetCard,
+                              id: cards.length > 0 ? Math.max(...cards.map(c => c.id)) + 1 + Math.floor(Math.random() * 1000) : Math.floor(Math.random() * 1000), // 👈 ここにカンマを追加！
+                              interval: 1,
+                              repetition: 0,
+                              efactor: 2.5,
+                              next_review_at: new Date().toISOString(),
+                              is_public: false
+                            });
+                          }
+                        });
+
+                        // 既存の単語帳Stateを更新（setCards はお使いのState更新関数名に合わせる）
+                        setCards(updatedCards);
+
+                        // 自動で学習画面（STUDY）へジャンプし、インポートしたカテゴリを選択状態にする
+                        setSelectedCategory(deck.category);
+                        setActiveTab('study');
+                        setCurrentIndex(0);
+
+                        alert(`「${deck.title}」を単語帳に追加しました！さっそく学習を始めましょう！`);
+                      }}
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 font-mono font-bold text-[11px] tracking-wide rounded-xl border border-slate-800 transition active:scale-[0.98]"
+                    >
+                      📥 このパックを追加してすぐ学習する
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </main>
+      )}
       {activeTab === 'study' && (
         <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-lg w-full mx-auto relative z-10">
 
