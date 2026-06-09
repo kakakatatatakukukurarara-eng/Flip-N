@@ -1049,6 +1049,34 @@ export default function UltimateStudyExperience() {
     }
   };
 
+  const handleAiGenerate = async () => {
+    try {
+      // inputText は画面のテキストエリアに入力された文字列
+      // userHobby は「野球」などの趣味のState
+      const response = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: aiText,
+          userHobby: userHobby,
+        }),
+      });
+
+      if (!response.ok) throw new Error('生成に失敗しました');
+
+      const data = await response.json();
+
+      // data.flashcards の中に、AIが自動抽出して作った単語カードの配列が入って返ってきます！
+      console.log("生成されたカード一覧:", data.flashcards);
+
+      // あとは、既存の単語帳リストのState（cardsなど）にガッチャンコして保存するだけ！
+      // setCards([...cards, ...data.flashcards]);
+
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   const vibrate = (pattern: number | number[]) => {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(pattern);
