@@ -6,6 +6,14 @@ import { createClient } from '@supabase/supabase-js';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { createWorker } from 'tesseract.js';
 import SharePreviewModal from './SharePreviewModal';
+import { useProfile } from './hooks/useProfile';
+import ProfileModal from './components/ProfileModal';
+import { useSettings } from './hooks/useSettings';
+import SettingsModal from './components/SettingsModal';
+import { useAuth } from './hooks/useAuth';
+import AuthModal from './components/AuthModal';
+import { useQuiz } from './hooks/useQuiz';
+import QuizContainer from './components/QuizContainer';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -54,17 +62,8 @@ const COURSE_PRESETS = {
 };
 
 export default function UltimateStudyExperience() {
-  const [quizMode, setQuizMode] = useState<'choice4' | 'typing' | 'boolean'>('choice4');
-  // タイピングモード用の状態
-  const [typingAnswer, setTypingAnswer] = useState('');
-  const [isTypingCorrect, setIsTypingCorrect] = useState<boolean | null>(null);
   const [user, setUser] = useState<any>(null);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
-
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const profile = useProfile(user, supabase, showToast);
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
 
@@ -87,8 +86,6 @@ export default function UltimateStudyExperience() {
   // 4. 新機能管理用の画面開閉State
   const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
-  const [avatarUrl, setAvatarUrl] = useState('');
-
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -109,17 +106,63 @@ export default function UltimateStudyExperience() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('home');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  // プロフィール用のState
-  const [editDisplayName, setEditDisplayName] = useState(user?.displayName || '');
-  const [dailyGoal, setDailyGoal] = useState(20); // 1日の目標単語数（初期値20）
 
-  // 🌟 [配置先] editDisplayName や dailyGoal の並び
-  const [userHobby, setUserHobby] = useState(''); // ユーザーの趣味・推し（例: サッカー、アニメ、K-POP）
+  const {
+    isProfileOpen,
+    setIsProfileOpen,
+    editDisplayName,
+    setEditDisplayName,
+    dailyGoal,
+    setDailyGoal,
+    userHobby,
+    setUserHobby,
+    avatarUrl,
+    setAvatarUrl,
+    handleSaveProfile
+  } = useProfile(user, supabase, showToast);
 
-  // アプリ設定用のState
-  const [isAutoPlay, setIsAutoPlay] = useState(true); // 音声自動再生
-  const [audioSpeed, setAudioSpeed] = useState('1.0'); // 音声の速さ (1.0 or 0.8)
-  const [testTimer, setTestTimer] = useState('none'); // テストの制限時間
+  const {
+    isSettingsOpen,
+    setIsSettingsOpen,
+    isAutoPlay,
+    setIsAutoPlay,
+    audioSpeed,
+    setAudioSpeed,
+    testTimer,
+    setTestTimer,
+    handleSaveSettings,
+  } = useSettings(user, supabase, showToast);
+
+  const {
+    authMode,
+    setAuthMode,
+    email,
+    setEmail,
+    password,
+    setPassword,
+    handleAuth,
+    handleOAuthLogin,
+    handleLogout, // 💡 ヘッダーやメニューのログアウトボタン部分でこれを使うようになります！
+  } = useAuth(supabase, showToast);
+
+  const {
+    quizMode,
+    setQuizMode,
+    quizIndex,
+    quizScore,
+    quizOptions,
+    quizSelected,
+    typingAnswer,
+    setTypingAnswer,
+    isTypingCorrect,
+    booleanCurrentDisplay,
+    booleanSelected,
+    timeLeft,
+    startQuiz,
+    handleChoice4Answer,
+    handleTypingSubmit,
+    handleBooleanAnswer,
+  } = useQuiz(cards, testTimer, speak); // 💡 testTimer と speak を渡して連動！
 
   // 📊 Supabaseから本物のランキングデータを取得する
   const fetchRealRanking = async () => {
@@ -345,33 +388,6 @@ export default function UltimateStudyExperience() {
     }
   ];
 
-  // 💾 プロフィールと趣味の保存
-  const handleSaveProfile = async () => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('profiles') // 💡 お使いのプロフィールテーブル名に合わせてください
-        .update({
-          display_name: editDisplayName,
-          user_hobby: userHobby,
-          daily_goal: dailyGoal,
-          avatar_url: avatarUrl,
-        })
-        .eq('id', user.id); // ログイン中のユーザーIDで絞り込み
-
-      if (error) throw error;
-
-      // 自分のステートも更新
-      setUser({ ...user, displayName: editDisplayName });
-      showToast('プロフィールをアカウントに保存しました！', 'success');
-      setIsProfileOpen(false);
-    } catch (err) {
-      console.error("プロフィールの保存に失敗:", err);
-      showToast("保存に失敗しました。", "error");
-    }
-  };
-
   // 🎮 ミニクイズを生成する関数
   const generateQuickQuiz = () => {
     if (cards.length < 4) return; // 選択肢を作るために最低4枚必要
@@ -401,29 +417,6 @@ export default function UltimateStudyExperience() {
       generateQuickQuiz();
     }
   }, [activeTab, cards]);
-
-  // ⚙️ アプリ設定の保存
-  const handleSaveSettings = async () => {
-    if (!user) return;
-
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          is_autoplay: isAutoPlay,
-          audio_speed: audioSpeed,
-          test_timer: testTimer
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      showToast('アプリ設定をアカウントに保存しました！', 'success');
-      setIsSettingsOpen(false);
-    } catch (err) {
-      console.error("設定の保存に失敗:", err);
-    }
-  };
 
   // 🔄 初回読み込み時やカード数が変わったときにランキングを更新
   useEffect(() => {
@@ -943,10 +936,6 @@ export default function UltimateStudyExperience() {
   const rotateY = useTransform(x, [-100, 100], [-30, 30]);
 
   const [isFlipped, setIsFlipped] = useState(false);
-  const [quizIndex, setQuizIndex] = useState(0);
-  const [quizOptions, setQuizOptions] = useState<string[]>([]);
-  const [quizScore, setQuizScore] = useState(0);
-  const [quizSelected, setQuizSelected] = useState<string | null>(null);
 
   const [newFront, setNewFront] = useState('');
   const [newBack, setNewBack] = useState('');
@@ -1459,41 +1448,6 @@ export default function UltimateStudyExperience() {
     localStorage.setItem('user_theme', nextTheme);
   };
 
-  const handleAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authMode === 'signup') {
-      const { error } = await supabase.auth.signUp({ email, password });
-      if (error) showToast(error.message, 'error');
-      else showToast('アカウント確認メールを送信しました！', 'success');
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) showToast(error.message, 'error');
-      else showToast('サインインしました！', 'success');
-    }
-    setAuthMode(null);
-  };
-
-  const handleOAuthLogin = async (provider: 'google' | 'github') => {
-    let redirectUrl = 'https://flip-n.vercel.app';
-    if (typeof window !== 'undefined') {
-      const host = window.location.host;
-      if (host.includes('localhost') || host.includes('github.dev')) {
-        redirectUrl = `${window.location.protocol}//${host}`;
-      }
-    }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: { redirectTo: redirectUrl }
-    });
-    if (error) showToast(error.message, 'error');
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    showToast('ログアウトしました', 'info');
-    setActiveTab('study');
-  };
-
   useEffect(() => {
     const totalMastered = cards.filter(c => (c.interval || 0) > 1).length;
     const newLevel = Math.floor(totalMastered / 5) + 1;
@@ -1525,19 +1479,12 @@ export default function UltimateStudyExperience() {
     }
   }
 
-  function startQuiz() {
-    if (cards.length < 4) return;
-    setQuizIndex(0);
-    setQuizScore(0);
-    makeQuizOptions(0);
-  }
-
   useEffect(() => {
     if (activeTab === 'test') startQuiz();
   }, [activeTab, cards]);
 
   function makeQuizOptions(index: number) {
-    setQuizSelected(null);
+    startQuiz();
     if (!cards[index]) return;
     const correctAnswer = cards[index].back;
     const wrongAnswers = cards
@@ -1547,16 +1494,16 @@ export default function UltimateStudyExperience() {
       .slice(0, 3);
 
     const options = [correctAnswer, ...wrongAnswers].sort(() => 0.5 - Math.random());
-    setQuizOptions(options);
+    startQuiz();
   }
 
   function handleQuizAnswer(option: string) {
     if (quizSelected) return;
-    setQuizSelected(option);
+    startQuiz();
 
     const isCorrect = option === cards[quizIndex].back;
     if (isCorrect) {
-      setQuizScore(prev => prev + 1);
+      startQuiz();
       playSound('correct');
       vibrate(50);
       if (quizIndex + 1 === cards.length && quizScore + 1 === cards.length) {
@@ -1569,10 +1516,10 @@ export default function UltimateStudyExperience() {
 
     setTimeout(() => {
       if (quizIndex + 1 < cards.length) {
-        setQuizIndex(prev => prev + 1);
+        startQuiz();
         makeQuizOptions(quizIndex + 1);
       } else {
-        setQuizIndex(prev => prev + 1);
+        startQuiz();
       }
     }, 1200);
 
@@ -1754,7 +1701,7 @@ export default function UltimateStudyExperience() {
           {/* モバイル専用アクション（スマホ画面のときだけ右上に表示） */}
           <div className="flex items-center gap-2 md:hidden">
             {user ? (
-              <button onClick={handleLogout} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
+              <button onClick={() => handleLogout(setActiveTab)} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
             ) : (
               <button onClick={() => setAuthMode('login')} className="text-[10px] font-mono border rounded px-2.5 py-1.5 bg-blue-600 text-white border-blue-600">SIGN IN</button>
             )}
@@ -1886,7 +1833,7 @@ export default function UltimateStudyExperience() {
                       <div className={`my-1 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`} />
 
                       <button
-                        onClick={handleLogout}
+                        onClick={() => handleLogout(setActiveTab)}
                         className="w-full text-left px-3 py-1.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all"
                       >
                         サインアウト
@@ -1913,50 +1860,19 @@ export default function UltimateStudyExperience() {
         </div>
       </header>
 
-      {/* 🔐 認証モーダル */}
+      {/* 🔐 認証モーダル（外部コンポーネント化） */}
       {authMode && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className={`p-6 rounded-2xl border max-w-sm w-full ${subContainerClass}`}>
-            <h3 className="text-xs font-mono font-bold tracking-widest uppercase mb-4 text-slate-400">{authMode === 'login' ? 'Sign In Pro Account' : 'Create Pro Account'}</h3>
-
-            <div className="flex flex-col gap-2 mb-4">
-              <button onClick={() => handleOAuthLogin('google')} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border bg-white text-black hover:bg-slate-200 transition">
-                <svg className="w-4 h-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" /><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" /><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" /><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" /></svg>
-                Continue with Google
-              </button>
-              <button onClick={() => handleOAuthLogin('github')} className="w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 border bg-[#24292e] text-white hover:bg-[#1a1e22] transition">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.464-1.11-1.464-.908-.62.069-.008.069-.008 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.577.688.479C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z" /></svg>
-                Continue with GitHub
-              </button>
-            </div>
-
-            <div className="relative flex py-2 items-center">
-              <div className="flex-grow border-t border-slate-700"></div>
-              <span className="flex-shrink mx-4 text-[10px] font-mono text-slate-500">OR EMAIL</span>
-              <div className="flex-grow border-t border-slate-700"></div>
-            </div>
-
-            <form onSubmit={handleAuth} className="space-y-3 mt-2">
-              <div>
-                <label className="block text-[9px] font-mono font-bold text-slate-400 mb-1">EMAIL ADDRESS</label>
-                <input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className={`w-full px-3 py-2 rounded-xl text-xs font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass}`} />
-              </div>
-              <div>
-                <label className="block text-[9px] font-mono font-bold text-slate-400 mb-1">PASSWORD</label>
-                <input type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required className={`w-full px-3 py-2 rounded-xl text-xs font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass}`} />
-              </div>
-              <button type="submit" className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-mono font-bold tracking-wider transition uppercase shadow-lg shadow-blue-600/20">
-                {authMode === 'login' ? 'SIGN IN' : 'SIGN UP'}
-              </button>
-            </form>
-            <div className="mt-4 text-center">
-              <button onClick={() => setAuthMode(authMode === 'login' ? 'signup' : 'login')} className="text-[10px] font-mono font-bold text-blue-500 hover:underline">
-                {authMode === 'login' ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
-              </button>
-            </div>
-            <button onClick={() => setAuthMode(null)} className="mt-2 w-full text-center text-[10px] font-mono text-slate-500 hover:text-slate-300 py-1">CANCEL</button>
-          </div>
-        </div>
+        <AuthModal
+          authMode={authMode}
+          setAuthMode={setAuthMode}
+          email={email}
+          setEmail={setEmail}
+          password={password}
+          setPassword={setPassword}
+          isDark={isDark} // ※ theme === 'dark' などの変数に合わせてください
+          handleAuth={handleAuth}
+          handleOAuthLogin={handleOAuthLogin}
+        />
       )}
 
       {/* 🍏 コース選択モーダル */}
@@ -2457,155 +2373,29 @@ export default function UltimateStudyExperience() {
         </main>
       )}
 
-      {/* 📝 テストタブ */}
+      {/* 📝 テストタブ（外部コンポーネント化＆タイマー・ロジック完全実装版） */}
       {activeTab === 'test' && (
-        <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-md w-full mx-auto relative z-10 space-y-4">
-
-          {/* 🌟 テストモード切り替えセレクター */}
-          {quizIndex < cards.length && (
-            <div className={`w-full p-1 rounded-xl border flex ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
-              {[
-                { id: 'choice4', label: '4択クイズ' },
-                { id: 'typing', label: 'タイピング' },
-                { id: 'boolean', label: '○×テスト' }
-              ].map(mode => (
-                <button
-                  key={mode.id}
-                  onClick={() => {
-                    setQuizMode(mode.id as any);
-                    // モード切り替え時に状態をリセットする処理をここに挟むと親切
-                  }}
-                  className={`flex-1 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition ${quizMode === mode.id ? (isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-blue-600 shadow-xs') : 'text-slate-500 hover:text-slate-400'}`}
-                >
-                  {mode.label}
-                </button>
-              ))}
-            </div>
-          )}
-
-          {cards.length < 4 ? (
-            <div className={`w-full p-8 text-center rounded-2xl border font-mono text-[11px] tracking-wide font-bold ${subContainerClass}`}>
-              クイズを開始するには最低4枚のカードが必要です。
-            </div>
-          ) : quizIndex >= cards.length ? (
-            /* テスト完了画面 (既存のものをそのまま使用) */
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className={`w-full p-6 text-center rounded-2xl border ${subContainerClass}`}>
-              <span className="text-2xl block mb-2">🏆</span>
-              <h4 className="text-sm font-black tracking-tight mb-1">テスト完了！</h4>
-              <p className="text-xs font-mono text-blue-500 font-bold mb-4">SCORE: {quizScore} / {cards.length}</p>
-              <button onClick={startQuiz} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[11px] font-mono font-bold shadow-lg shadow-blue-600/20 transition">TRY AGAIN</button>
-            </motion.div>
-          ) : (
-            <div className="w-full space-y-4">
-              {/* スコア・進捗表示 (共通) */}
-              <div className="flex justify-between items-center text-[10px] font-mono font-bold text-slate-500 px-1">
-                <span>{quizMode.toUpperCase()} | QUIZ {quizIndex + 1} OF {cards.length}</span>
-                <span>SCORE: {quizScore}</span>
-              </div>
-
-              {/* ----------------------------------------------------
-           MODE 1: 4択クイズ (既存のロジック)
-        ---------------------------------------------------- */}
-              {quizMode === 'choice4' && (
-                <div className="space-y-4">
-                  <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
-                    <span className="text-[9px] font-mono font-bold tracking-widest text-blue-500 uppercase px-2 py-0.5 bg-blue-500/10 rounded border border-blue-500/20 block w-max mx-auto mb-3">QUESTION</span>
-                    <h3 className="text-base font-black tracking-tight">{cards[quizIndex].front}</h3>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    {quizOptions.map((option, idx) => {
-                      const isSelected = quizSelected === option;
-                      const isCorrect = option === cards[quizIndex].back;
-                      let btnStyle = isDark ? 'bg-slate-900 border-slate-800 hover:bg-slate-850 text-slate-300' : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700 shadow-xs';
-                      if (quizSelected) {
-                        if (isCorrect) btnStyle = 'bg-green-500/20 border-green-500 text-green-400 font-bold';
-                        else if (isSelected) btnStyle = 'bg-red-500/20 border-red-500 text-red-400 font-bold';
-                      }
-                      return (
-                        <button
-                          key={idx}
-                          onClick={() => handleQuizAnswer(option)}
-                          className={`w-full p-3 rounded-xl border text-left text-xs transition flex items-center justify-between ${btnStyle}`}
-                        >
-                          <span>{option}</span>
-                          {quizSelected && isCorrect && <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                          {quizSelected && isSelected && !isCorrect && <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* ----------------------------------------------------
-           MODE 2: タイピングテスト (新規)
-        ---------------------------------------------------- */}
-              {quizMode === 'typing' && (
-                <div className="space-y-4">
-                  <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
-                    <span className="text-[9px] font-mono font-bold tracking-widest text-purple-500 uppercase px-2 py-0.5 bg-purple-500/10 rounded border border-purple-500/20 block w-max mx-auto mb-3">意味から英語をタイピング</span>
-                    <h3 className="text-base font-black tracking-tight">{cards[quizIndex].back}</h3>
-                    {cards[quizIndex].example && (
-                      <p className="text-[11px] text-slate-400 italic mt-2">{cards[quizIndex].example}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="英単語を入力..."
-                      value={typingAnswer}
-                      onChange={(e) => setTypingAnswer(e.target.value)}
-                      disabled={isTypingCorrect !== null}
-                      className={`w-full px-4 py-3 rounded-xl text-sm font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass} ${isTypingCorrect === true ? 'border-green-500 bg-green-500/10' : isTypingCorrect === false ? 'border-red-500 bg-red-500/10' : ''
-                        }`}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && typingAnswer.trim()) {
-                          // ここで正誤判定ロジックを呼ぶ（例: cards[quizIndex].front との比較）
-                          const correct = typingAnswer.trim().toLowerCase() === cards[quizIndex].front.trim().toLowerCase();
-                          setIsTypingCorrect(correct);
-                          if (correct) { setQuizScore(prev => prev + 1); speak('Excellent!'); } else { speak('Wrong'); }
-                          setTimeout(() => {
-                            // 次の問題へ進む処理
-                            setTypingAnswer('');
-                            setIsTypingCorrect(null);
-                            setQuizIndex(prev => prev + 1);
-                          }, 1500);
-                        }
-                      }}
-                    />
-                    <p className="text-[9px] text-slate-500 font-mono text-center">[Enter] で確定</p>
-                  </div>
-                </div>
-              )}
-
-              {/* ----------------------------------------------------
-           MODE 3: ○×テスト (新規)
-        ---------------------------------------------------- */}
-              {quizMode === 'boolean' && (
-                <div className="space-y-4">
-                  <div className={`p-6 rounded-2xl border text-center ${cardClass}`}>
-                    <span className="text-[9px] font-mono font-bold tracking-widest text-cyan-500 uppercase px-2 py-0.5 bg-cyan-500/10 rounded border border-cyan-500/20 block w-max mx-auto mb-3">この組み合わせは正しい？</span>
-                    <div className="space-y-2">
-                      <h3 className="text-base font-black tracking-tight text-slate-400">ENG: <span className={isDark ? 'text-white' : 'text-slate-900'}>{cards[quizIndex].front}</span></h3>
-                      <h3 className="text-base font-black tracking-tight text-slate-400">JPN: <span className="text-blue-400">{/* ランダムまたは正解の意味を表示するロジック */} {cards[quizIndex].back}</span></h3>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <button onClick={() => {/* 正解判定ロジック */ }} className="p-4 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/20 rounded-xl font-bold transition text-sm">
-                      ◯ 正しい
-                    </button>
-                    <button onClick={() => {/* 不正解判定ロジック */ }} className="p-4 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-xl font-bold transition text-sm">
-                      ✕ 違う
-                    </button>
-                  </div>
-                </div>
-              )}
-
-            </div>
-          )}
-        </main>
+        <QuizContainer
+          cards={cards}
+          isDark={isDark} // (または theme === 'dark' など定義名に合わせてください)
+          testTimer={testTimer}
+          quizMode={quizMode}
+          setQuizMode={setQuizMode}
+          quizIndex={quizIndex}
+          quizScore={quizScore}
+          quizOptions={quizOptions}
+          quizSelected={quizSelected}
+          typingAnswer={typingAnswer}
+          setTypingAnswer={setTypingAnswer}
+          isTypingCorrect={isTypingCorrect}
+          booleanCurrentDisplay={booleanCurrentDisplay}
+          booleanSelected={booleanSelected}
+          timeLeft={timeLeft}
+          startQuiz={startQuiz}
+          handleChoice4Answer={handleChoice4Answer}
+          handleTypingSubmit={handleTypingSubmit}
+          handleBooleanAnswer={handleBooleanAnswer}
+        />
       )}
 
       {/* 📂 単語帳管理タブ */}
@@ -3242,188 +3032,35 @@ export default function UltimateStudyExperience() {
 
       {/* ========== PROFILE モーダル (機能連動版) ========== */}
       {isProfileOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
-            <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>USER PROFILE</h2>
-
-            <div className="space-y-5">
-              <div className="mb-5 flex flex-col items-center gap-3">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-500 shadow-md bg-slate-100 relative group">
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
-                      No Image
-                    </div>
-                  )}
-                </div>
-
-                <label className="cursor-pointer px-3 py-1 rounded-full text-[11px] font-bold bg-purple-500/10 text-purple-500 hover:bg-purple-500/20 transition-all">
-                  画像を変更する
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                          setAvatarUrl(reader.result as string); // Base64形式でStateに保存
-                        };
-                        reader.readAsDataURL(file);
-                      }
-                    }}
-                  />
-                </label>
-              </div>
-              {/* 1. 表示名の変更 */}
-              <div>
-                <label className={`block text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>表示名 (Display Name)</label>
-                <input
-                  type="text"
-                  value={editDisplayName}
-                  onChange={(e) => setEditDisplayName(e.target.value)}
-                  placeholder="お名前を入力"
-                  className={`w-full px-4 py-2.5 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                />
-              </div>
-
-              {/* 2. 1日の目標単語数 (増量項目) */}
-              <div>
-                <label className={`block text-xs font-bold mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>1日の目標学習数 (Daily Goal)</label>
-                <div className="flex items-center gap-3">
-                  <input
-                    type="number"
-                    value={dailyGoal}
-                    onChange={(e) => setDailyGoal(Number(e.target.value))}
-                    min="5"
-                    max="200"
-                    className={`w-24 px-4 py-2.5 rounded-xl border text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-blue-500 transition ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                  />
-                  <span className={`text-xs ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>単語 / 日</span>
-                </div>
-                <p className="text-[10px] text-slate-400 mt-1">5〜200個の間で設定できます</p>
-              </div>
-            </div>
-
-            {/* ========================================================
-    [配置先] プロフィールモーダル (isProfileOpen === true) の中
-======================================================== */}
-            <div className="mt-4">
-              <label className={`block text-xs font-black font-mono mb-2 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
-                🎨 YOUR HOBBY / INTERESTS (趣味・推し)
-              </label>
-              <input
-                type="text"
-                value={userHobby}
-                onChange={(e) => setUserHobby(e.target.value)}
-                placeholder="例: サッカー, アニメ, ガジェット, K-POP"
-                className={`w-full px-3 py-2 rounded-xl text-xs border font-bold focus:outline-none transition-all ${isDark
-                  ? 'bg-slate-800 border-slate-705 text-white focus:border-purple-500'
-                  : 'bg-slate-50 border-slate-200 text-slate-800 focus:border-purple-500'
-                  }`}
-              />
-              <p className="text-[10px] text-slate-400 mt-1">
-                ※ここに入力した趣味に合わせて、AIがあなた専用の例文を自動生成するようになります！
-              </p>
-            </div>
-
-            {/* アクションボタン */}
-            <div className="flex justify-end gap-3 mt-8 border-t pt-4 border-slate-200 dark:border-slate-800">
-              <button
-                onClick={() => setIsProfileOpen(false)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSaveProfile}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-500 transition shadow-lg shadow-blue-500/20"
-              >
-                プロフィールを保存
-              </button>
-            </div>
-          </div>
-        </div>
+        <ProfileModal
+          isDark={theme === 'dark'} // もし page.tsx 側が isDark という変数なら isDark={isDark} にしてください
+          user={user}
+          onClose={() => setIsProfileOpen(false)}
+          editDisplayName={editDisplayName}
+          setEditDisplayName={setEditDisplayName}
+          dailyGoal={dailyGoal}
+          setDailyGoal={setDailyGoal}
+          userHobby={userHobby}
+          setUserHobby={setUserHobby}
+          avatarUrl={avatarUrl}
+          setAvatarUrl={setAvatarUrl}
+          onSave={() => handleSaveProfile(setUser)}
+        />
       )}
 
       {/* ========== SETTINGS モーダル (項目増量＆機能連動版) ========== */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
-            <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>SETTINGS</h2>
-
-            <div className="space-y-5">
-
-              {/* 1. 音声自動再生（トグルスイッチ） */}
-              <div className="flex items-center justify-between p-1">
-                <div>
-                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の自動再生</p>
-                  <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>カードをめくった時に発音を自動再生</p>
-                </div>
-                <button
-                  onClick={() => setIsAutoPlay(!isAutoPlay)}
-                  className={`w-11 h-6 rounded-full relative transition-colors shadow-inner ${isAutoPlay ? 'bg-blue-600' : isDark ? 'bg-slate-700' : 'bg-slate-200'}`}
-                >
-                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all shadow ${isAutoPlay ? 'right-1' : 'left-1'}`}></span>
-                </button>
-              </div>
-
-              {/* 2. 音声再生スピード（セレクトボックス） */}
-              <div className="flex items-center justify-between p-1">
-                <div>
-                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の再生速度</p>
-                  <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>リスニング時の発音スピード</p>
-                </div>
-                <select
-                  value={audioSpeed}
-                  onChange={(e) => setAudioSpeed(e.target.value)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                >
-                  <option value="1.0">1.0x (標準)</option>
-                  <option value="0.8">0.8x (ゆっくり)</option>
-                  <option value="1.2">1.2x (速め)</option>
-                </select>
-              </div>
-
-              {/* 3. クイズの制限時間設定（セレクトボックス） */}
-              <div className="flex items-center justify-between p-1">
-                <div>
-                  <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>テストの制限時間</p>
-                  <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>4択クイズやテストモード時の1問の制限</p>
-                </div>
-                <select
-                  value={testTimer}
-                  onChange={(e) => setTestTimer(e.target.value)}
-                  className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-                >
-                  <option value="none">制限なし</option>
-                  <option value="5">5秒 (超シビア)</option>
-                  <option value="10">10秒 (標準)</option>
-                  <option value="30">30秒 (ゆったり)</option>
-                </select>
-              </div>
-
-            </div>
-
-            {/* アクションボタン */}
-            <div className="flex justify-end gap-3 mt-8 border-t pt-4 border-slate-200 dark:border-slate-800">
-              <button
-                onClick={() => setIsSettingsOpen(false)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${isDark ? 'text-slate-400 hover:bg-slate-800' : 'text-slate-500 hover:bg-slate-100'}`}
-              >
-                キャンセル
-              </button>
-              <button
-                onClick={handleSaveSettings}
-                className="px-5 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white hover:bg-blue-500 transition shadow-lg shadow-blue-500/20"
-              >
-                設定を保存
-              </button>
-            </div>
-          </div>
-        </div>
+        <SettingsModal
+          isDark={isDark}
+          isAutoPlay={isAutoPlay}
+          setIsAutoPlay={setIsAutoPlay}
+          audioSpeed={audioSpeed}
+          setAudioSpeed={setAudioSpeed}
+          testTimer={testTimer}
+          setTestTimer={setTestTimer}
+          setIsSettingsOpen={setIsSettingsOpen}
+          handleSaveSettings={handleSaveSettings}
+        />
       )}
 
       {/* ========== 🌟 新機能全部入り特大モーダル ========== */}
