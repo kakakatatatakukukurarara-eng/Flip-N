@@ -8,7 +8,7 @@ interface HomeContainerProps {
   streak: number;
   dailyMissions: { studyCount: number };
   dailyGoal: number;
-  setActiveTab: (tab: string) => void;
+  setActiveTab: (tab: "study" | "manage" | "home" | "test" | "shared" | "dashboard") => void;s
   quickQuizStatus: 'idle' | 'correct' | 'wrong';
   generateQuickQuiz: () => void;
   cards: any[];
