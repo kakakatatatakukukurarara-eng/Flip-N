@@ -1679,7 +1679,7 @@ export default function UltimateStudyExperience() {
           <div className="flex items-center gap-4">
             {/* ロゴ */}
             <span className={`text-base font-black tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              FLIP-N <span className="text-blue-500">PRO</span>
+              Flip-N
             </span>
 
             {/* ストリーク表示 */}
