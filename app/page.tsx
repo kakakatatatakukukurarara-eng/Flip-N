@@ -1679,7 +1679,7 @@ export default function UltimateStudyExperience() {
           <div className="flex items-center gap-4">
             {/* ロゴ */}
             <span className={`text-base font-black tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              Flip-N | 効率的に単語を覚える次世代クイズ学習アプリ
+              FLIP-N
             </span>
 
             {/* ストリーク表示 */}
