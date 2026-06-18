@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { db } from '@/lib/firebase';
+import { collection, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 export default function RankingContainer({ user, cards }: { user: any, cards: any[] }) {
   const [isBattleActive, setIsBattleActive] = useState(false);
