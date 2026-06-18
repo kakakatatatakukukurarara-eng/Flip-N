@@ -15,6 +15,7 @@ import AuthModal from './components/AuthModal';
 import { useQuiz } from './hooks/useQuiz';
 import QuizContainer from './components/QuizContainer';
 import HomeContainer from './components/HomeContainer';
+import RankingContainer from './components/RankingContainer';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -2367,7 +2368,11 @@ export default function UltimateStudyExperience() {
 
           </div>
         </main>
-      )}
+      )}]
+
+      {activeTab === 'ranking' && (
+  <RankingContainer user={user} cards={cards} />
+)}
 
       {/* 🌐 SHARED (パブリック共有マーケット) タブ */}
       {activeTab === 'shared' && (
