@@ -1,19 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { db } from './lib/firebase';
-import { collection, addDoc, query, orderBy, limit, onSnapshot } from 'firebase/firestore';
 
 export default function RankingContainer({ user, cards }: { user: any, cards: any[] }) {
   const [isBattleActive, setIsBattleActive] = useState(false);
   const [startTime, setStartTime] = useState(0);
   const [rankings, setRankings] = useState<any[]>([]);
 
-  // リアルタイムでランキングを取得
   useEffect(() => {
-    const q = query(collection(db, "rankings"), orderBy("time", "asc"), limit(10));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setRankings(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    });
-    return unsubscribe;
+    setRankings([
+      { id: '1', name: 'Demo User', time: 12.34 },
+      { id: '2', name: 'Top Player', time: 15.67 },
+    ]);
   }, []);
 
   const startBattle = () => {
@@ -24,14 +20,9 @@ export default function RankingContainer({ user, cards }: { user: any, cards: an
   const finishBattle = async (score: number) => {
     const endTime = Date.now();
     const timeTaken = (endTime - startTime) / 1000;
-    
-    // Firebaseに保存
-    await addDoc(collection(db, "rankings"), {
-      name: user?.displayName || "Guest",
-      time: timeTaken,
-      createdAt: new Date()
-    });
     setIsBattleActive(false);
+
+    console.log('Battle finished:', { score, timeTaken });
   };
 
   return (
