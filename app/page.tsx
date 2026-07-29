@@ -17,6 +17,11 @@ import QuizContainer from './components/QuizContainer';
 import HomeContainer from './components/HomeContainer';
 import RankingContainer from './components/RankingContainer';
 import StudyContainer from './components/StudyContainer';
+import AppHeader from './components/AppHeader';
+import HomeTabContent from './components/HomeTabContent';
+import ManageTabContent from './components/ManageTabContent';
+import SharedTabContent from './components/SharedTabContent';
+import DashboardTabContent from './components/DashboardTabContent';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -1673,195 +1678,28 @@ export default function UltimateStudyExperience() {
   return (
     <div className={`min-h-screen font-sans flex flex-col justify-between antialiased transition-colors duration-300 ${bgClass}`}>
 
-      {/* ヘッダー */}
-      <header className={`px-6 py-3.5 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${headerClass}`}>
-
-        {/* 【左側グループ】ロゴ、ストリーク、レベル情報を美しく一体化 */}
-        <div className="flex items-center justify-between w-full md:w-auto md:gap-6">
-          <div className="flex items-center gap-4">
-            {/* ロゴ */}
-            <span className={`text-base font-black tracking-wider flex items-center gap-1.5 ${isDark ? 'text-white' : 'text-slate-900'}`}>
-              FLIP-N
-            </span>
-
-            {/* ストリーク表示 */}
-            <div className={`text-[10px] font-mono tracking-wide px-2.5 py-0.5 rounded border flex items-center gap-1.5 ${isDark ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-              <svg className="w-3.5 h-3.5 text-orange-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-              <span>{streak} DAYS</span>
-            </div>
-
-            {/* デスクトップ用：レベル表示（ロゴのすぐ横に並ぶようにここに移動） */}
-            <div className="hidden md:flex items-center gap-2 text-[10px] font-mono tracking-wider border-l pl-4 border-slate-700/30">
-              <span className="text-blue-500 font-bold">LV.{level}</span>
-              <span className="text-slate-400">|</span>
-              <span className={`font-bold ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{title}</span>
-            </div>
-          </div>
-
-          {/* モバイル専用アクション（スマホ画面のときだけ右上に表示） */}
-          <div className="flex items-center gap-2 md:hidden">
-            {user ? (
-              <button onClick={() => handleLogout(setActiveTab)} className="text-[10px] font-mono border rounded px-2.5 py-1.5 hover:bg-red-500/10 hover:text-red-500 border-slate-700">LOGOUT</button>
-            ) : (
-              <button onClick={() => setAuthMode('login')} className="text-[10px] font-mono border rounded px-2.5 py-1.5 bg-blue-600 text-white border-blue-600">SIGN IN</button>
-            )}
-            <button onClick={toggleTheme} className={`p-2 rounded-lg border flex items-center justify-center ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-slate-100 border-slate-200 text-slate-600'}`}>
-              {isDark ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
-            </button>
-          </div>
-        </div>
-
-        {/* 【右側グループ】ナビゲーションと各種ボタンを集約 */}
-        <div className="flex flex-col md:flex-row items-center justify-between md:justify-end gap-4 w-full md:w-auto md:gap-6">
-          {/* タブナビゲーション */}
-          <nav className={`flex p-1 rounded-xl border overflow-x-auto w-full md:w-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
-            {[
-              {
-                id: 'home', label: 'HOME', icon: (
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                  </svg>
-                )
-              },
-              { id: 'study', label: 'STUDY', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg> },
-              { id: 'test', label: 'TEST', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-              { id: 'manage', label: 'MANAGE', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
-              { id: 'shared', label: 'SHARED', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg> },
-              { id: 'dashboard', label: 'ANALYTICS', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2zm12 0v-11a2 2 0 00-2-2h-2a2 2 0 00-2 2v11a2 2 0 002 2h2a2 2 0 002-2z" /></svg> }
-            ].map(tab => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.id ? (isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-blue-600 shadow-xs') : (isDark ? 'text-slate-500 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          {/* デスクトップ＆モバイル共通アクション（アイコンメニュー＆テーマ） */}
-          <div className="flex items-center gap-3">
-            {user ? (
-              /* 🔓 ユーザーがログインしている場合のみ、ドロップダウンメニュー全体を表示 */
-              <div className="relative">
-                <button
-                  ref={avatarButtonRef}
-                  onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                  className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all"
-                >
-                  {avatarUrl ? (
-                    <img src={avatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                      {(user?.displayName || "U").slice(0, 1).toUpperCase()}
-                    </div>
-                  )}
-                </button>
-
-                {/* ドロップダウンメニュー（開閉状態のときのみ表示） */}
-                {/* 📄 アカウントメニュー本体 */}
-                {isUserMenuOpen && (
-                  <div
-                    ref={menuRef} // 🌟 外側クリック判定用のRef
-                    className={`absolute right-0 mt-3 w-64 rounded-2xl border shadow-xl z-50 overflow-hidden backdrop-blur-md transition-all ${isDark ? 'bg-slate-900/95 border-slate-800 text-slate-100' : 'bg-white/95 border-slate-200 text-slate-800'
-                      }`}
-                  >
-                    {/* ヘッダー */}
-                    <div className={`p-4 flex items-center gap-3 border-b ${isDark ? 'border-slate-800/60 bg-slate-950/40' : 'border-slate-50 bg-slate-50/60'}`}>
-                      <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex-shrink-0">
-                        {avatarUrl ? (
-                          <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                            {(user?.displayName || "U").slice(0, 1).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div className="truncate">
-                        <h4 className="text-xs font-bold tracking-wide truncate">{user?.displayName || "ゲストユーザー"}</h4>
-                        <p className="text-[10px] text-slate-400 truncate mt-0.5">{user?.email}</p>
-                      </div>
-                    </div>
-
-                    {/* ステータス（絵文字を排除し、スマートなドットインジケーターに変更） */}
-                    <div className="p-4 space-y-2.5 text-[11px] font-medium border-b border-slate-100 dark:border-slate-800/60">
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> 継続日数
-                        </span>
-                        <span className="font-bold text-slate-700 dark:text-slate-200">{streak} 日</span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 今日の目標
-                        </span>
-                        <span className="font-bold text-slate-700 dark:text-slate-200">
-                          {Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%
-                        </span>
-                      </div>
-
-                      <div className="flex justify-between items-center">
-                        <span className="text-slate-400 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-purple-500" /> マイブーム
-                        </span>
-                        <span className="px-2 py-0.5 text-[10px] rounded-md bg-slate-100 dark:bg-slate-800 font-bold max-w-[100px] truncate">
-                          {userHobby || "未設定"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* ボタンリスト */}
-                    <div className="p-1.5 space-y-0.5">
-                      <button
-                        onClick={() => { setIsProfileOpen(true); setIsUserMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 text-slate-700'
-                          }`}
-                      >
-                        プロフィール編集
-                      </button>
-
-                      <button
-                        onClick={() => { setIsSettingsOpen(true); setIsUserMenuOpen(false); }}
-                        className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${isDark ? 'hover:bg-slate-800 hover:text-white' : 'hover:bg-slate-100 text-slate-700'
-                          }`}
-                      >
-                        アプリ環境設定
-                      </button>
-
-                      <div className={`my-1 border-t ${isDark ? 'border-slate-800' : 'border-slate-100'}`} />
-
-                      <button
-                        onClick={() => handleLogout(setActiveTab)}
-                        className="w-full text-left px-3 py-1.5 rounded-xl text-xs font-bold text-rose-500 hover:bg-rose-500/10 transition-all"
-                      >
-                        サインアウト
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* 🔒 ログインしていない場合は SIGN IN ボタンだけを表示 */
-              <button
-                onClick={() => setAuthMode('login')}
-                className="text-[10px] font-mono border rounded px-3 py-1.5 bg-blue-600 text-white border-blue-600 shadow-sm hover:bg-blue-500 transition"
-              >
-                SIGN IN
-              </button>
-            )}
-
-            {/* テーマ切り替えボタン (常時表示) */}
-            <button onClick={toggleTheme} className={`p-2 rounded-lg border flex items-center justify-center transition hover:scale-105 ${isDark ? 'bg-slate-800 border-slate-700 text-yellow-400' : 'bg-white border-slate-200 text-slate-600 shadow-sm'}`}>
-              {isDark ? <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" /></svg> : <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>}
-            </button>
-          </div>
-        </div>
-      </header>
+      <AppHeader
+        user={user}
+        isDark={isDark}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        setAuthMode={setAuthMode}
+        handleLogout={handleLogout}
+        toggleTheme={toggleTheme}
+        streak={streak}
+        level={level}
+        title={title}
+        dailyGoal={dailyGoal}
+        dailyMissions={dailyMissions}
+        userHobby={userHobby}
+        avatarUrl={avatarUrl}
+        isUserMenuOpen={isUserMenuOpen}
+        setIsUserMenuOpen={setIsUserMenuOpen}
+        setIsProfileOpen={setIsProfileOpen}
+        setIsSettingsOpen={setIsSettingsOpen}
+        avatarButtonRef={avatarButtonRef}
+        menuRef={menuRef}
+      />
 
       {/* 🔐 認証モーダル（外部コンポーネント化） */}
       {authMode && (
@@ -1909,32 +1747,29 @@ export default function UltimateStudyExperience() {
       )}
 
 
-      {/* メインコンテンツ */}
-      {/* ========================================================
-          🏠 1. ホーム画面（新設ダッシュボード）
-      ======================================================== */}
       {activeTab === 'home' && (
-        <HomeContainer
+        <HomeTabContent
           user={user}
           userHobby={userHobby}
           streak={streak}
-          dailyMissions={dailyMissions}
           dailyGoal={dailyGoal}
-          setActiveTab={setActiveTab}
-          quickQuizStatus={quickQuizStatus}
-          generateQuickQuiz={generateQuickQuiz}
+          dailyMissions={dailyMissions}
           cards={cards}
+          subContainerClass={subContainerClass}
+          innerBoxClass={innerBoxClass}
+          setActiveTab={setActiveTab}
+          setSelectedCategory={setSelectedCategory}
           quickQuizCard={quickQuizCard}
+          quickQuizStatus={quickQuizStatus}
           quickQuizOptions={quickQuizOptions}
           selectedOption={selectedOption}
           setSelectedOption={setSelectedOption}
+          generateQuickQuiz={generateQuickQuiz}
+          speak={speak}
           setQuickQuizStatus={setQuickQuizStatus}
-          speak={typeof speak !== 'undefined' ? speak : undefined}
-          setSelectedCategory={setSelectedCategory}
           PRESET_DECKS={PRESET_DECKS}
           setCards={setCards}
           setCurrentIndex={setCurrentIndex}
-          isDark={isDark}
         />
       )}
       {activeTab === 'study' && (
@@ -1990,113 +1825,7 @@ export default function UltimateStudyExperience() {
         />
       )}
 
-      {/* 📂 単語帳管理タブ */}
       {activeTab === 'manage' && (
-        <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
-
-          <div className="flex justify-between items-center px-1">
-            <h3 className="text-base font-black tracking-tight">単語帳の管理・編集</h3>
-            {/* 🌟 共有ボタンを設置 */}
-            <button
-              onClick={() => handleShareDeck("マイベスト英会話", "自分がよく使うフレーズ集")}
-              className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-[11px] rounded-xl transition flex items-center gap-1 uppercase"
-            >
-              <span>🔗</span> SHARE THIS DECK
-            </button>
-          </div>
-
-          {/* AI生成機能 */}
-          <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
-            <h4 className="text-xs font-mono font-bold tracking-widest text-blue-500 uppercase mb-1">✨ AI Flashcard Generator</h4>
-            <p className="text-[11px] text-slate-400 mb-3">長文や単語リストを入力すると、AIが自動で「英語・日本語・例文」のカードを一度に解析して生成します。</p>
-            <div className="flex flex-col gap-2">
-              <textarea
-                placeholder="ここに英文や単語リストを入力... (例: Apple, Banana, Horizon)"
-                value={aiText}
-                onChange={(e) => setAiText(e.target.value)}
-                disabled={isGenerating}
-                rows={3}
-                className={`w-full p-3 rounded-xl text-xs font-mono border focus:outline-hidden focus:ring-1 focus:ring-blue-500 ${inputBgClass}`}
-              />
-              <input
-                type="file"
-                ref={fileInputRef}
-                accept="image/*"
-                capture="environment"
-                className="hidden"
-                onChange={handleImageChange}
-              />
-
-              <div className="mt-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isProcessingImage || isGenerating}
-                  className="w-full py-3 px-4 rounded-xl border border-dashed border-cyan-500/30 bg-cyan-500/5 hover:bg-cyan-500/10 text-cyan-400 text-xs font-mono font-bold tracking-wider transition flex items-center justify-center gap-2 disabled:opacity-40 disabled:pointer-events-none group"
-                >
-                  {isProcessingImage ? (
-                    <>
-                      <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-                      <span>OCR SCANNING IN PROGRESS...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="group-hover:rotate-12 transition-transform">📸</span>
-                      <span>AI CAMERA SCAN</span>
-                    </>
-                  )}
-                </button>
-              </div>
-              <button
-                onClick={handleGenerateAI}
-                disabled={isGenerating}
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-mono font-bold text-xs tracking-wider rounded-xl transition uppercase shadow-md"
-              >
-                {isGenerating ? 'AI 解析中...' : 'AIで一発自動生成する'}
-              </button>
-            </div>
-
-            {/* AIプレビュー確認エリア */}
-            {aiPreviewCards.length > 0 && (
-              <div className="mt-5 pt-4 border-t border-dashed border-slate-800 space-y-3">
-                <div className="flex justify-between items-center">
-                  <h5 className="text-[11px] font-mono font-bold text-yellow-500 tracking-wider uppercase">✨ AI Generation Preview ({aiPreviewCards.length}枚)</h5>
-                  <button onClick={handleConfirmAndSaveAI} className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white font-mono font-bold text-[10px] tracking-wide rounded-lg transition shadow-xs">
-                    この内容で確定・保存する
-                  </button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
-                  {aiPreviewCards.map((pCard, index) => (
-                    <div key={index} className={`p-3 rounded-xl border relative flex flex-col gap-1.5 group ${innerBoxClass}`}>
-                      <button
-                        onClick={() => handleExcludePreviewCard(index)}
-                        className="absolute top-2 right-2 p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition"
-                        title="除外する"
-                      >
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                      </button>
-                      <div>
-                        <label className="block text-[8px] font-mono text-slate-500">FRONT (ENGLISH)</label>
-                        <input type="text" value={pCard.front} onChange={(e) => handleUpdatePreviewField(index, 'front', e.target.value)} className="w-full bg-transparent border-b border-slate-800 text-xs font-bold text-slate-200 py-0.5 focus:outline-hidden focus:border-blue-500" />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-mono text-slate-500">BACK (JAPANESE)</label>
-                        <input type="text" value={pCard.back} onChange={(e) => handleUpdatePreviewField(index, 'back', e.target.value)} className="w-full bg-transparent border-b border-slate-800 text-xs text-blue-400 py-0.5 focus:outline-hidden focus:border-blue-500" />
-                      </div>
-                      <div>
-                        <label className="block text-[8px] font-mono text-slate-500">EXAMPLE SENTENCE</label>
-                        <input type="text" value={pCard.example} onChange={(e) => handleUpdatePreviewField(index, 'example', e.target.value)} className="w-full bg-transparent border-b border-slate-800 text-[10px] text-slate-400 py-0.5 focus:outline-hidden focus:border-blue-500" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ========================================================
-    [配置先] activeTab === 'create' のフォーム周辺
-======================================================== */}
           <div className={`p-5 rounded-2xl border mt-6 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
             <h3 className="text-xs font-black font-mono mb-2 text-blue-500 tracking-wider">📁 CSV / ANKI DECK IMPORT</h3>
             <p className={`text-[11px] mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -2209,390 +1938,98 @@ export default function UltimateStudyExperience() {
       )}]
 
       {activeTab === 'ranking' && (
-  <RankingContainer user={user} cards={cards} />
-)}
-
-      {/* 🌐 SHARED (パブリック共有マーケット) タブ */}
-      {activeTab === 'shared' && (
-        <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-4 relative z-10">
-          {/* ========================================================
-    [配置先] activeTab === 'public' のコンテンツ最上部
-======================================================== */}
-          <div className={`p-5 rounded-2xl border mb-6 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h3 className="text-xs font-black font-mono text-green-500 tracking-wider">👥 SHARED ROOM (共同編集ルーム)</h3>
-                <p className="text-[10px] text-slate-400 mt-0.5">同じルームIDを入力した仲間と、リアルタイムに同じ単語帳を編集・共有できます。</p>
-              </div>
-
-              <div className="flex gap-2 max-w-md w-full md:w-auto">
-                <input
-                  type="text"
-                  placeholder="ルームIDを入力"
-                  value={inputRoomId}
-                  onChange={(e) => setInputRoomId(e.target.value)}
-                  className={`flex-1 md:w-48 px-3 py-2 rounded-xl text-xs border focus:outline-none ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white'}`}
-                />
-                <button
-                  onClick={handleJoinRoom}
-                  className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-xs hover:bg-green-500 transition whitespace-nowrap"
-                >
-                  参加 / 作成
-                </button>
-              </div>
-            </div>
-
-            {currentRoomId && (
-              <div className="mt-3 text-xs text-green-500 font-mono font-bold flex items-center gap-1.5 animate-pulse">
-                <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                ルーム接続中: {currentRoomId}
-              </div>
-            )}
-          </div>
-          <div className="px-1">
-            <h3 className="text-sm font-black tracking-tight">🌐 全体公開フレーズマーケット</h3>
-            <p className="text-[11px] text-slate-400 mt-0.5">世界中のFLIP-Nユーザーが全体公開している有益な単語やフレーズを、自分の単語帳へワンタップでインポートできます。</p>
-          </div>
-
-          {!user ? (
-            <div className={`w-full p-8 text-center rounded-2xl border font-mono text-[11px] tracking-wide font-bold ${subContainerClass}`}>
-              共有カードの閲覧・インポートにはログインが必要です。
-            </div>
-          ) : sharedCards.length === 0 ? (
-            <div className={`w-full p-12 text-center rounded-2xl border font-mono text-[11px] tracking-widest font-bold ${subContainerClass}`}>
-              現在、全体公開されている共有カードはありません。
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[550px] overflow-y-auto pr-1">
-              {sharedCards.map(sCard => (
-                <div key={sCard.id} className={`p-4 rounded-2xl border flex justify-between items-start gap-4 transition ${cardClass}`}>
-                  <div className="space-y-1 flex-grow">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className={`text-xs font-bold tracking-tight ${isDark ? 'text-slate-200' : 'text-slate-800'}`}>
-                        {sCard.front}
-                      </span>
-                      <span className="text-slate-600 text-[10px]">|</span>
-                      <span className="text-xs text-blue-400 font-medium">{sCard.back}</span>
-                      <span className="text-[8px] font-mono uppercase tracking-wider text-purple-400 px-1.5 py-0.5 bg-purple-500/10 rounded border border-purple-500/20">{sCard.category || 'Shared'}</span>
-                    </div>
-                    {sCard.example && <p className="text-[11px] text-slate-400 italic">{sCard.example}</p>}
-                    <div className="text-[8px] font-mono text-slate-600 pt-0.5">
-                      CONTRIBUTOR // USER_ID: {sCard.user_id?.substring(0, 8)}...
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => handleImportCard(sCard)}
-                    className="flex-shrink-0 px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-mono font-bold text-[9px] tracking-wider rounded-lg transition shadow-xs uppercase flex items-center gap-1"
-                  >
-                    <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" /></svg>
-                    IMPORT
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </main>
+        <RankingContainer user={user} cards={cards} />
+      )}
+        <ManageTabContent
+          cards={cards}
+          subContainerClass={subContainerClass}
+          inputBgClass={inputBgClass}
+          cardClass={cardClass}
+          innerBoxClass={innerBoxClass}
+          isDark={isDark}
+          aiText={aiText}
+          setAiText={setAiText}
+          isGenerating={isGenerating}
+          handleGenerateAI={handleGenerateAI}
+          fileInputRef={fileInputRef}
+          handleImageChange={handleImageChange}
+          isProcessingImage={isProcessingImage}
+          aiPreviewCards={aiPreviewCards}
+          handleConfirmAndSaveAI={handleConfirmAndSaveAI}
+          handleExcludePreviewCard={handleExcludePreviewCard}
+          handleUpdatePreviewField={handleUpdatePreviewField}
+          handleCSVImport={handleCSVImport}
+          newFront={newFront}
+          setNewFront={setNewFront}
+          newBack={newBack}
+          setNewBack={setNewBack}
+          newExample={newExample}
+          setNewExample={setNewExample}
+          newCategory={newCategory}
+          setNewCategory={setNewCategory}
+          newIsPublic={newIsPublic}
+          setNewIsPublic={setNewIsPublic}
+          frontInputRef={frontInputRef}
+          handleAddCard={handleAddCard}
+          editingCardId={editingCardId}
+          editFront={editFront}
+          setEditFront={setEditFront}
+          editBack={editBack}
+          setEditBack={setEditBack}
+          editExample={editExample}
+          setEditExample={setEditExample}
+          editCategory={editCategory}
+          setEditCategory={setEditCategory}
+          editIsPublic={editIsPublic}
+          setEditIsPublic={setEditIsPublic}
+          startEditing={startEditing}
+          handleUpdateCard={handleUpdateCard}
+          setEditingCardId={setEditingCardId}
+          handleDeleteCard={handleDeleteCard}
+          toggleCardPublic={toggleCardPublic}
+          handleShareDeck={handleShareDeck}
+        />
       )}
 
-      {/* 📊 3. ゲーミフィケーション分析ダッシュボード（アップデート） */}
+      {activeTab === 'shared' && (
+        <SharedTabContent
+          user={user}
+          sharedCards={sharedCards}
+          currentRoomId={currentRoomId}
+          inputRoomId={inputRoomId}
+          setInputRoomId={setInputRoomId}
+          subContainerClass={subContainerClass}
+          cardClass={cardClass}
+          isDark={isDark}
+          handleJoinRoom={handleJoinRoom}
+          handleImportCard={handleImportCard}
+        />
+      )}
+
       {activeTab === 'dashboard' && (
-
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex-1 max-w-md mx-auto w-full px-4 py-8 space-y-6"
-        >
-
-          {/* 🌟 追記：実績シェアモーダルを開くボタン */}
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="w-full mt-4 py-3 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-mono font-bold text-xs rounded-2xl shadow-lg transition transform hover:scale-[1.02] active:scale-[0.98] flex items-center justify-center gap-2 uppercase tracking-wider"
-          >
-            📸 GENERATE SHARE IMAGE (実績を画像でシェア)
-          </button>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
-              <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Total Deck Size</span>
-              <span className="text-xl font-black tracking-tight">{cards.length}</span>
-              <span className="text-[8px] font-mono text-slate-400 block mt-0.5">CARDS INSTALLED</span>
-            </div>
-            <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
-              <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Mastery Rate</span>
-              <span className="text-xl font-black tracking-tight text-blue-400">{mastery}%</span>
-              <span className="text-[8px] font-mono text-slate-400 block mt-0.5">{mainTabMasteredCards} CARDS MASTERED</span>
-            </div>
-            <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
-              <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Current Streak</span>
-              <span className="text-xl font-black tracking-tight text-orange-500">{streak} 🔥</span>
-              <span className="text-[8px] font-mono text-slate-400 block mt-0.5">DAYS LEARNING IN A ROW</span>
-            </div>
-            <div className={`p-4 rounded-2xl border text-center ${subContainerClass}`}>
-              <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Learning Level</span>
-              <span className="text-xl font-black tracking-tight text-purple-400">LV.{level}</span>
-              <span className="text-[8px] font-mono text-slate-400 block mt-0.5">RANK: {title}</span>
-            </div>
-          </div>
-
-          <div className={`p-5 rounded-2xl border mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
-            <div className="flex-1">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-black font-mono text-purple-500 tracking-wider">🤖 AI STUDY PARTNER</h3>
-
-                {/* キャラクター切り替え */}
-                <div className="flex gap-1">
-                  {['🦊', '🤖', '👑'].map((char) => (
-                    <button
-                      key={char}
-                      onClick={() => {
-                        setAiCharacter(char);
-                        setAiMessage(char === '🦊' ? "今日も一歩ずつ進もう！" : char === '🤖' ? "学習データを最適化中。" : "べ、別に応援なんてしてないわよ！");
-                      }}
-                      className={`text-xs px-2 py-1 rounded-lg border transition-all ${aiCharacter === char ? 'border-purple-500 bg-purple-500/10 scale-105 font-bold' : 'border-transparent opacity-45'}`}
-                    >
-                      {char}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className={`p-3.5 rounded-xl border text-xs leading-relaxed font-bold flex items-center gap-3 ${isDark ? 'bg-slate-900 border-slate-800 text-purple-300' : 'bg-white border-slate-200 text-purple-700'}`}>
-                <span className="text-xl shrink-0">{aiCharacter}</span>
-                <p>「{aiMessage}」</p>
-              </div>
-            </div>
-          </div>
-
-          <div className={`p-5 rounded-2xl border flex flex-col justify-between ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
-            <div className="flex items-center justify-between mb-3 border-b pb-2 border-slate-200 dark:border-slate-800">
-              <h3 className="text-xs font-black font-mono text-yellow-500 tracking-wider flex items-center gap-1">
-                🏆 WORLD RANKING
-              </h3>
-              <button
-                onClick={fetchRealRanking}
-                className="text-[9px] font-mono text-blue-500 hover:underline"
-              >
-                更新 🔄
-              </button>
-            </div>
-
-            <div className="space-y-2.5">
-              {isRankingLoading ? (
-                // ローディング中の表示
-                <div className="text-center py-4 text-xs font-mono text-slate-400 animate-pulse">
-                  リアルタイム集計中...
-                </div>
-              ) : leaderboard.length === 0 ? (
-                // データがない場合
-                <div className="text-center py-4 text-xs font-mono text-slate-400">
-                  まだ他のデータがありません
-                </div>
-              ) : (
-                // 本物のランキング結果
-                leaderboard.map((player, index) => (
-                  <div key={index} className="flex items-center justify-between text-xs font-mono">
-                    <div className="flex items-center gap-2 truncate">
-                      <span className={`font-black w-4 text-center text-[10px] rounded px-0.5 ${index === 0 ? 'bg-yellow-500/20 text-yellow-500' :
-                        index === 1 ? 'bg-slate-400/20 text-slate-400' :
-                          'bg-amber-600/20 text-amber-600'
-                        }`}>
-                        {index + 1}
-                      </span>
-                      <span className={`font-bold truncate ${player.name.includes("あなた") ? 'text-blue-500 font-black' : 'text-slate-700 dark:text-slate-300'}`}>
-                        {player.name}
-                      </span>
-                    </div>
-                    <div className="text-[11px] font-bold text-yellow-500 shrink-0">
-                      {player.words}<span className="text-[9px] text-slate-400 font-normal ml-0.5">単語</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-
-          {/* 🌟 追記：デイリーミッションパネル（ダッシュボードの最上部などに配置） */}
-          <div className={`p-5 rounded-2xl border ${subContainerClass} space-y-4`}>
-            <div className="flex justify-between items-center">
-              <div className="space-y-0.5">
-                <h3 className="text-xs font-bold font-mono tracking-widest text-blue-500 uppercase">🎯 DAILY MISSIONS</h3>
-                <p className="text-[11px] text-slate-400">毎日クリアしてコインを稼ごう！</p>
-              </div>
-              {/* 所持コイン表示 */}
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 font-mono font-bold text-xs rounded-xl shadow-xs">
-                <span>🪙</span> {flipCoins} COINS
-              </div>
-            </div>
-
-            <div className="space-y-3 font-mono">
-              {/* ミッション1: STUDY */}
-              <div className="flex items-center justify-between text-xs">
-                <span className={dailyMissions.studyCount >= 10 ? 'text-green-400 line-through' : 'text-slate-300'}>
-                  {dailyMissions.studyCount >= 10 ? '✅' : '⚡'} カードを10枚学習する
-                </span>
-                <span className="text-slate-500 text-[11px]">{dailyMissions.studyCount} / 10</span>
-              </div>
-
-              {/* ミッション2: TEST */}
-              <div className="flex items-center justify-between text-xs">
-                <span className={dailyMissions.testCompleted ? 'text-green-400 line-through' : 'text-slate-300'}>
-                  {dailyMissions.testCompleted ? '✅' : '⚡'} クイズテストに1回挑戦する
-                </span>
-                <span className="text-slate-500 text-[11px]">{dailyMissions.testCompleted ? '1 / 1' : '0 / 1'}</span>
-              </div>
-
-              {/* ミッション3: SPEAK */}
-              <div className="flex items-center justify-between text-xs">
-                <span className={dailyMissions.speakCompleted ? 'text-green-400 line-through' : 'text-slate-300'}>
-                  {dailyMissions.speakCompleted ? '✅' : '⚡'} AI発音分析を1回以上試す
-                </span>
-                <span className="text-slate-500 text-[11px]">{dailyMissions.speakCompleted ? '1 / 1' : '0 / 1'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* 🟢 ここから：GitHub風ヒートマップのUI */}
-          <div className={`p-6 rounded-2xl border ${theme === 'dark' ? 'bg-zinc-900/50 border-zinc-800' : 'bg-white border-zinc-200'} shadow-sm mb-6`}>
-            <div className="flex items-center gap-2 mb-4">
-              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <h3 className="font-bold tracking-tight text-sm">学習ヒートマップ (直近12週間)</h3>
-            </div>
-
-            <div className="flex flex-wrap gap-1.5 justify-start p-1 overflow-x-auto">
-              {Array.from({ length: 84 }).map((_, i) => {
-                // 今日から遡って83日前までの日付を計算
-                const d = new Date();
-                d.setDate(d.getDate() - (83 - i));
-                const dateStr = d.toISOString().split('T')[0];
-                const count = studyLogs[dateStr] || 0;
-
-                // 学習数に応じた色の塗り分け
-                let bgClass = theme === 'dark' ? 'bg-zinc-800/60' : 'bg-zinc-100'; // 0問
-                if (count > 0 && count <= 3) bgClass = 'bg-emerald-900/40 text-emerald-400';   // 1~3問 (薄緑)
-                if (count > 3 && count <= 10) bgClass = 'bg-emerald-700/60 text-emerald-300';  // 4~10問 (中緑)
-                if (count > 10) bgClass = 'bg-emerald-500 text-white';                         // 11問以上 (濃緑)
-
-                return (
-                  <div
-                    key={i}
-                    className={`w-[14px] h-[14px] rounded-sm sm:rounded-[3px] ${bgClass} transition-all duration-300 hover:scale-125 cursor-pointer relative group flex-shrink-0`}
-                    title={`${dateStr}: ${count}問学習`}
-                  >
-                    {/* ホバー時に日付と問題数をポップアップ表示 */}
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 hidden group-hover:block bg-zinc-950 text-white text-[10px] py-1 px-2 rounded font-mono whitespace-nowrap z-50 shadow-xl border border-zinc-800">
-                      {dateStr} ({count}問)
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="flex justify-end items-center gap-1.5 mt-3 text-[10px] text-zinc-500 font-mono">
-              <span>Less</span>
-              <div className={`w-2.5 h-2.5 rounded-sm ${theme === 'dark' ? 'bg-zinc-800' : 'bg-zinc-100'}`}></div>
-              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-900/40"></div>
-              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-700/60"></div>
-              <div className="w-2.5 h-2.5 rounded-sm bg-emerald-500"></div>
-              <span>More</span>
-            </div>
-          </div>
-          {/* 🟢 ここまで：ヒートマップUI */}
-
-          {/* 🌟 週間アクティビティ棒グラフ */}
-          <div className={`border rounded-2xl p-5 ${subContainerClass}`}>
-            <h3 className="text-xs font-bold font-mono tracking-widest text-slate-400 mb-6">WEEKLY LEARNING ACTIVITY</h3>
-
-            <div className="h-28 flex items-end justify-between gap-2.5 px-1 pt-4">
-              {[
-                { day: 'Mon', count: Math.min(cards.length, 4), height: 'h-[30%]' },
-                { day: 'Tue', count: Math.min(cards.length + 2, 8), height: 'h-[55%]' },
-                { day: 'Wed', count: Math.min(cards.length, 2), height: 'h-[15%]' },
-                { day: 'Thu', count: Math.min(cards.length * 2, 12), height: 'h-[75%]' },
-                { day: 'Fri', count: cards.length, height: 'h-[90%]', current: true }, // 本日
-                { day: 'Sat', count: 0, height: 'h-[5%]' },
-                { day: 'Sun', count: 0, height: 'h-[5%]' },
-              ].map((item, index) => (
-                <div key={index} className="flex-1 flex flex-col items-center gap-2 group relative">
-
-                  {/* ホバー時に枚数をふわっと表示する吹き出し */}
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-7 bg-slate-800 text-white border border-slate-700 text-[9px] font-mono px-1.5 py-0.5 rounded shadow-xl z-10 pointer-events-none">
-                    {item.count}枚
-                  </div>
-
-                  {/* 棒グラフのバー */}
-                  <div className={`w-full rounded-t-md relative overflow-hidden h-full flex items-end ${isDark ? 'bg-slate-800/40' : 'bg-slate-200/50'}`}>
-                    <motion.div
-                      initial={{ scaleY: 0 }}
-                      animate={{ scaleY: 1 }}
-                      transition={{ duration: 0.5, delay: index * 0.04 }}
-                      className={`w-full ${item.height} origin-bottom rounded-t-md ${item.current
-                        ? 'bg-gradient-to-t from-blue-600 to-cyan-400 shadow-[0_0_10px_rgba(59,130,246,0.4)]'
-                        : isDark ? 'bg-slate-700 group-hover:bg-slate-600' : 'bg-slate-400 group-hover:bg-slate-500'
-                        }`}
-                    />
-                  </div>
-
-                  {/* 曜日ラベル */}
-                  <span className={`text-[10px] font-mono ${item.current ? 'text-blue-500 font-bold' : 'text-slate-500'}`}>
-                    {item.day}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* 🌟 脳内定着度メーター (SRS) */}
-          <div className={`border rounded-2xl p-5 space-y-4 ${subContainerClass}`}>
-            <h3 className="text-xs font-bold font-mono tracking-widest text-slate-400">MEMORY RETENTION (SRS)</h3>
-
-            <div className="space-y-3.5">
-              {/* 短期記憶メーター */}
-              <div>
-                <div className="flex justify-between text-xs font-mono mb-1.5">
-                  <span className="text-slate-400">🌱 短期記憶 / 学習中</span>
-                  <span className="text-slate-300 font-bold">{cards.filter(c => (c.interval || 1) <= 3).length}枚</span>
-                </div>
-                <div className={`w-full h-2 rounded-full overflow-hidden ${innerBoxClass}`}>
-                  <div
-                    className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500 rounded-full"
-                    style={{ width: `${cards.length ? (cards.filter(c => (c.interval || 1) <= 3).length / cards.length) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* 長期記憶メーター */}
-              <div>
-                <div className="flex justify-between text-xs font-mono mb-1.5">
-                  <span className="text-slate-400">🚀 長期記憶に定着中</span>
-                  <span className="text-slate-300 font-bold">{cards.filter(c => (c.interval || 1) > 3).length}枚</span>
-                </div>
-                <div className={`w-full h-2 rounded-full overflow-hidden ${innerBoxClass}`}>
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-cyan-400 transition-all duration-500 rounded-full"
-                    style={{ width: `${cards.length ? (cards.filter(c => (c.interval || 1) > 3).length / cards.length) * 100 : 0}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* システム通知設定 */}
-          <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
-            <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">SYSTEM NOTIFICATIONS</h4>
-            <div className="space-y-3">
-              <div className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${innerBoxClass}`}>
-                <div className="space-y-0.5">
-                  <span className="text-xs font-bold tracking-wide block">リマインダー・プッシュ通知設定</span>
-                  <p className="text-[11px] text-slate-400">毎日決まった時間に復習通知を受け取り、忘却曲線を防ぎストリークを維持します。</p>
-                </div>
-                <button onClick={triggerTestNotification} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-mono font-bold text-[10px] border border-slate-700 rounded-lg transition whitespace-nowrap">
-                  TEST NOTIFICATION
-                </button>
-              </div>
-            </div>
-          </div>
-
-        </motion.div>
+        <DashboardTabContent
+          cards={cards}
+          streak={streak}
+          level={level}
+          title={title}
+          subContainerClass={subContainerClass}
+          isDark={isDark}
+          innerBoxClass={innerBoxClass}
+          leaderboard={leaderboard}
+          isRankingLoading={isRankingLoading}
+          fetchRealRanking={fetchRealRanking}
+          aiCharacter={aiCharacter}
+          setAiCharacter={setAiCharacter}
+          aiMessage={aiMessage}
+          setAiMessage={setAiMessage}
+          flipCoins={flipCoins}
+          dailyMissions={dailyMissions}
+          studyLogs={studyLogs}
+          theme={theme}
+          setShowShareModal={setShowShareModal}
+          mastery={mastery}
+          mainTabMasteredCards={mainTabMasteredCards}
+        />
       )}
 
       {/* フッター */}
