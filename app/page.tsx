@@ -887,12 +887,12 @@ export default function UltimateStudyExperience() {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: aiText, category: 'AI Generated' })
+        body: JSON.stringify({ text: aiText, userHobby: userHobby || '日常会話' })
       });
       const data = await res.json();
 
-      if (data.cards && Array.isArray(data.cards)) {
-        const formatted: PreviewCard[] = data.cards.map((c: { front?: string; back?: string; example?: string; category?: string }) => ({
+      if (res.ok && Array.isArray(data.flashcards)) {
+        const formatted: PreviewCard[] = data.flashcards.map((c: { front?: string; back?: string; example?: string; category?: string }) => ({
           front: c.front || '',
           back: c.back || '',
           example: c.example || '',
@@ -901,10 +901,10 @@ export default function UltimateStudyExperience() {
         setAiPreviewCards(formatted);
         showToast('✨ プレビュー画面が出現しました！', 'success');
       } else {
-        showToast('生成処理が失敗しました。', 'error');
+        showToast(data?.error || '生成処理が失敗しました。', 'error');
       }
     } catch (e) {
-      showToast('エラーが発生しました。', 'error');
+      showToast('AI生成でエラーが発生しました。APIキー設定を確認してください。', 'error');
     } finally {
       setIsGenerating(false);
     }

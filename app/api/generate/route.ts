@@ -1,10 +1,18 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+const geminiApiKey = process.env.GEMINI_API_KEY;
+const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
 export async function POST(req: Request) {
   try {
+    if (!geminiApiKey || !ai) {
+      return NextResponse.json(
+        { error: 'GEMINI_API_KEY が未設定です。プロジェクトルートの .env.local に GEMINI_API_KEY=... を追加してください。' },
+        { status: 500 }
+      );
+    }
+
     // フロント（page.tsx）から「入力テキスト」と「ユーザーの趣味」を受け取る
     const { text = '', userHobby = '日常会話' } = await req.json();
 
@@ -39,16 +47,28 @@ export async function POST(req: Request) {
       contents: aiPrompt,
     });
 
-    const responseText = response.text || '[]';
-    
+    const responseText = typeof response.text === 'string' ? response.text : '[]';
+
     // AIから返ってきたテキストをJSONオブジェクト（配列）にパース
-    const flashcards = JSON.parse(responseText.trim());
+    let flashcards: unknown;
+    try {
+      flashcards = JSON.parse(responseText.trim());
+    } catch {
+      return NextResponse.json({ error: 'AIの返答がJSON形式ではありませんでした。' }, { status: 500 });
+    }
+
+    if (!Array.isArray(flashcards)) {
+      return NextResponse.json({ error: 'AIの返答形式が正しくありません。' }, { status: 500 });
+    }
 
     // 生成されたカードの配列をフロントエンドに返す
     return NextResponse.json({ flashcards });
 
   } catch (error) {
     console.error('AI単語帳生成エラー:', error);
-    return NextResponse.json({ error: '単語帳の自動生成に失敗しました' }, { status: 500 });
+    const message = error instanceof Error && /API key|GEMINI_API_KEY/i.test(error.message)
+      ? 'GEMINI_API_KEY が無効または未設定です。 .env.local を確認してください。'
+      : '単語帳の自動生成に失敗しました';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
