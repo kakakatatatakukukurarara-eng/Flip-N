@@ -6,7 +6,7 @@ interface HomeContainerProps {
   user: any;
   userHobby: string;
   streak: number;
-  dailyMissions: { studyCount: number };
+  dailyMissions: { studyCount: number; testCompleted: boolean; speakCompleted: boolean };
   dailyGoal: number;
   setActiveTab: (tab: "study" | "manage" | "home" | "test" | "shared" | "dashboard") => void;
   quickQuizStatus: 'idle' | 'correct' | 'wrong';
