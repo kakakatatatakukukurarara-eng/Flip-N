@@ -163,33 +163,56 @@ export default function ManageTabContent({
 
         {aiPreviewCards.length > 0 && (
           <div className="mt-5 pt-4 border-t border-dashed border-slate-800 space-y-3">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
               <h5 className="text-[11px] font-mono font-bold text-yellow-500 tracking-wider uppercase">✨ AI Generation Preview ({aiPreviewCards.length}枚)</h5>
-              <button onClick={handleConfirmAndSaveAI} className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white font-mono font-bold text-[10px] tracking-wide rounded-lg transition shadow-xs">
+              <button onClick={handleConfirmAndSaveAI} className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white font-mono font-bold text-[10px] tracking-wide rounded-lg transition shadow-xs">
                 この内容で確定・保存する
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[26rem] overflow-y-auto pr-1">
               {aiPreviewCards.map((pCard, index) => (
-                <div key={index} className={`p-3 rounded-xl border relative flex flex-col gap-1.5 group ${innerBoxClass}`}>
-                  <button
-                    onClick={() => handleExcludePreviewCard(index)}
-                    className="absolute top-2 right-2 p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 opacity-0 group-hover:opacity-100 transition"
-                    title="除外する"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                  </button>
-                  <div>
-                    <label className="block text-[8px] font-mono text-slate-500">FRONT (ENGLISH)</label>
-                    <input type="text" value={pCard.front} onChange={(e) => handleUpdatePreviewField(index, 'front', e.target.value)} className="w-full bg-transparent border-b border-slate-800 text-xs font-bold text-slate-200 py-0.5 focus:outline-hidden focus:border-blue-500" />
+                <div key={index} className={`group relative p-4 rounded-2xl border transition-all duration-200 hover:-translate-y-0.5 ${cardClass}`}>
+                  <div className="absolute right-3 top-3 flex items-center gap-2">
+                    <span className="rounded-full bg-blue-500/10 px-2 py-0.5 text-[9px] font-mono font-bold text-blue-500 uppercase tracking-wider">AI</span>
+                    <button
+                      onClick={() => handleExcludePreviewCard(index)}
+                      className="p-1 rounded-md text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition"
+                      title="除外する"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
                   </div>
-                  <div>
-                    <label className="block text-[8px] font-mono text-slate-500">BACK (JAPANESE)</label>
-                    <input type="text" value={pCard.back} onChange={(e) => handleUpdatePreviewField(index, 'back', e.target.value)} className="w-full bg-transparent border-b border-slate-800 text-xs text-blue-400 py-0.5 focus:outline-hidden focus:border-blue-500" />
-                  </div>
-                  <div>
-                    <label className="block text-[8px] font-mono text-slate-500">EXAMPLE SENTENCE</label>
-                    <input type="text" value={pCard.example} onChange={(e) => handleUpdatePreviewField(index, 'example', e.target.value)} className="w-full bg-transparent border-b border-slate-800 text-[10px] text-slate-400 py-0.5 focus:outline-hidden focus:border-blue-500" />
+
+                  <div className="space-y-3 pr-8 pt-1">
+                    <div>
+                      <label className="block text-[8px] font-mono font-bold text-slate-500 uppercase tracking-wider mb-1">FRONT</label>
+                      <textarea
+                        value={pCard.front}
+                        onChange={(e) => handleUpdatePreviewField(index, 'front', e.target.value)}
+                        rows={2}
+                        className={`w-full rounded-xl border px-2.5 py-2 text-sm font-bold leading-relaxed ${inputBgClass}`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-mono font-bold text-slate-500 uppercase tracking-wider mb-1">BACK</label>
+                      <textarea
+                        value={pCard.back}
+                        onChange={(e) => handleUpdatePreviewField(index, 'back', e.target.value)}
+                        rows={2}
+                        className={`w-full rounded-xl border px-2.5 py-2 text-sm text-blue-500 leading-relaxed ${inputBgClass}`}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-[8px] font-mono font-bold text-slate-500 uppercase tracking-wider mb-1">EXAMPLE</label>
+                      <textarea
+                        value={pCard.example}
+                        onChange={(e) => handleUpdatePreviewField(index, 'example', e.target.value)}
+                        rows={3}
+                        className={`w-full rounded-xl border px-2.5 py-2 text-[11px] leading-relaxed ${inputBgClass}`}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}

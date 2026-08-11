@@ -559,21 +559,25 @@ export default function UltimateStudyExperience() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hobby: userHobby,
-          text: text,
+          text,
+          userHobby: userHobby || '日常会話',
           category: selectedCategory !== 'All' ? selectedCategory : 'Camera Scan'
         }),
       });
 
-      if (!response.ok) throw new Error("単語カードの生成に失敗しました");
-
       const data = await response.json();
 
-      if (data.cards && data.cards.length > 0) {
-        setAiPreviewCards(data.cards);
-        showToast(`📸 ${data.cards.length}個の単語をカメラから保存しました！`, "success");
+      if (response.ok && Array.isArray(data.flashcards) && data.flashcards.length > 0) {
+        const formatted: PreviewCard[] = data.flashcards.map((c: { front?: string; back?: string; example?: string; category?: string }) => ({
+          front: c.front || '',
+          back: c.back || '',
+          example: c.example || '',
+          category: c.category || 'Camera Scan'
+        }));
+        setAiPreviewCards(formatted);
+        showToast(`📸 ${formatted.length}個の単語をAIで生成しました！`, "success");
       } else {
-        showToast("辞書にマッチする単語がありませんでした。", "error");
+        showToast(data?.error || "画像からのAI生成に失敗しました。", "error");
       }
     } catch (error) {
       console.error(error);
