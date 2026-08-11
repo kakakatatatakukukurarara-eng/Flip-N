@@ -66,9 +66,10 @@ export async function POST(req: Request) {
 
   } catch (error) {
     console.error('AI単語帳生成エラー:', error);
-    const message = error instanceof Error && /API key|GEMINI_API_KEY/i.test(error.message)
-      ? 'GEMINI_API_KEY が無効または未設定です。 .env.local を確認してください。'
-      : '単語帳の自動生成に失敗しました';
+    const rawMessage = error instanceof Error ? error.message : '単語帳の自動生成に失敗しました';
+    const message = /API key|GEMINI_API_KEY|invalid|unauthorized|forbidden/i.test(rawMessage)
+      ? `Gemini API エラー: ${rawMessage}`
+      : rawMessage;
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
