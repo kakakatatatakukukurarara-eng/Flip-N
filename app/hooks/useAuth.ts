@@ -1,5 +1,6 @@
 // src/hooks/useAuth.ts
 import { useState } from 'react';
+import type { SupabaseClientMinimal, ShowToastFn } from '../types';
 
 function getAuthRedirectUrl() {
     if (typeof window === 'undefined') return 'http://localhost:3000';
@@ -12,7 +13,7 @@ function getAuthRedirectUrl() {
     return 'https://flip-n.vercel.app';
 }
 
-export function useAuth(supabase: any, showToast: (msg: string, type: 'success' | 'error' | 'info') => void) {
+export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn) {
     const [authMode, setAuthMode] = useState<'login' | 'signup' | null>(null);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -95,7 +96,7 @@ export function useAuth(supabase: any, showToast: (msg: string, type: 'success' 
     };
 
     // 🚪 ログアウト
-    const handleLogout = async (setActiveTab: (tab: any) => void) => {
+    const handleLogout = async (setActiveTab: React.Dispatch<React.SetStateAction<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>>) => {
         if (!ensureAuthReady()) return;
         await supabase.auth.signOut();
         showToast('ログアウトしました', 'info');

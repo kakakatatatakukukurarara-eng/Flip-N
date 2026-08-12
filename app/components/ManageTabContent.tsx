@@ -1,14 +1,8 @@
 import React from 'react';
-
-interface PreviewCard {
-  front: string;
-  back: string;
-  example: string;
-  category: string;
-}
+import type { Card, PreviewCard } from '../types';
 
 interface ManageTabContentProps {
-  cards: any[];
+  cards: Card[];
   subContainerClass: string;
   inputBgClass: string;
   cardClass: string;
@@ -18,7 +12,7 @@ interface ManageTabContentProps {
   setAiText: (value: string) => void;
   isGenerating: boolean;
   handleGenerateAI: () => void;
-  fileInputRef: any;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   handleImageChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   isProcessingImage: boolean;
   aiPreviewCards: PreviewCard[];
@@ -36,7 +30,7 @@ interface ManageTabContentProps {
   setNewCategory: (value: string) => void;
   newIsPublic: boolean;
   setNewIsPublic: (value: boolean) => void;
-  frontInputRef: any;
+  frontInputRef: React.RefObject<HTMLInputElement | null>;
   handleAddCard: (event: React.FormEvent<HTMLFormElement>) => void;
   editingCardId: number | null;
   editFront: string;
@@ -49,11 +43,11 @@ interface ManageTabContentProps {
   setEditCategory: (value: string) => void;
   editIsPublic: boolean;
   setEditIsPublic: (value: boolean) => void;
-  startEditing: (card: any) => void;
+  startEditing: (card: Card) => void;
   handleUpdateCard: (id: number) => void;
   setEditingCardId: (value: number | null) => void;
   handleDeleteCard: (id: number) => void;
-  toggleCardPublic: (id: number, currentStatus: boolean) => void;
+  toggleCardPublic: (id: number, currentStatus: boolean) => void | Promise<void>;
   handleShareDeck: (title: string, description: string) => void;
 }
 

@@ -1,12 +1,13 @@
 import React from 'react';
+import type { User } from '../types';
 
 interface AppHeaderProps {
-  user: any;
+  user: User | null;
   isDark: boolean;
   activeTab: string;
-  setActiveTab: (tab: any) => void;
-  setAuthMode: (mode: any) => void;
-  handleLogout: (setActiveTab: (tab: any) => void) => void;
+  setActiveTab: React.Dispatch<React.SetStateAction<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>>;
+  setAuthMode: (mode: 'login' | 'signup' | null) => void;
+  handleLogout: (setActiveTab: React.Dispatch<React.SetStateAction<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>>) => void;
   toggleTheme: () => void;
   streak: number;
   level: number;
@@ -23,8 +24,8 @@ interface AppHeaderProps {
   setIsUserMenuOpen: (open: boolean) => void;
   setIsProfileOpen: (open: boolean) => void;
   setIsSettingsOpen: (open: boolean) => void;
-  avatarButtonRef: any;
-  menuRef: any;
+  avatarButtonRef: React.RefObject<HTMLButtonElement | null>;
+  menuRef: React.RefObject<HTMLDivElement | null>;
 }
 
 export default function AppHeader({
@@ -93,10 +94,10 @@ export default function AppHeader({
             { id: 'manage', label: 'MANAGE', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
             { id: 'shared', label: 'SHARED', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" /></svg> },
             { id: 'dashboard', label: 'ANALYTICS', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h2a2 2 0 002-2zm12 0v-11a2 2 0 00-2-2h-2a2 2 0 00-2 2v11a2 2 0 002 2h2a2 2 0 002-2z" /></svg> },
-          ].map((tab) => (
+            ].map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => setActiveTab(tab.id as 'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard')}
               className={`px-3.5 py-1.5 rounded-lg text-[11px] font-bold tracking-wide transition whitespace-nowrap flex items-center gap-1.5 ${activeTab === tab.id ? (isDark ? 'bg-slate-800 text-blue-400' : 'bg-white text-blue-600 shadow-xs') : (isDark ? 'text-slate-500 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
             >
               {tab.icon}

@@ -1,7 +1,8 @@
 // src/hooks/useProfile.ts
 import { useState, useEffect } from 'react';
+import type { User, SupabaseClientMinimal, ShowToastFn } from '../types';
 
-export function useProfile(user: any, supabase: any, showToast: (msg: string, type: 'success' | 'error') => void) {
+export function useProfile(user: User | null, supabase: SupabaseClientMinimal, showToast: ShowToastFn) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   
   // モーダル内で管理するプロフィール関連のState
@@ -36,14 +37,15 @@ export function useProfile(user: any, supabase: any, showToast: (msg: string, ty
           if (data.avatar_url) setAvatarUrl(data.avatar_url);
         }
       } catch (err) {
-        console.error("プロフィール情報の取得に失敗:", err);
+        if (process.env.NODE_ENV === 'development') console.error('プロフィール情報の取得に失敗:', err);
+        showToast('プロフィールの取得に失敗しました。', 'error');
       }
     }
     fetchProfile();
   }, [user?.id, supabase]);
 
   // プロフィール保存処理
-  const handleSaveProfile = async (setUser: any) => {
+  const handleSaveProfile = async (setUser: (u: User | null) => void) => {
     if (!user) return;
     try {
       const { error } = await supabase
@@ -63,8 +65,8 @@ export function useProfile(user: any, supabase: any, showToast: (msg: string, ty
       showToast('プロフィールをアカウントに保存しました！', 'success');
       setIsProfileOpen(false);
     } catch (err) {
-      console.error("プロフィールの保存に失敗:", err);
-      showToast("保存に失敗しました。", "error");
+      if (process.env.NODE_ENV === 'development') console.error('プロフィールの保存に失敗:', err);
+      showToast('保存に失敗しました。', 'error');
     }
   };
 

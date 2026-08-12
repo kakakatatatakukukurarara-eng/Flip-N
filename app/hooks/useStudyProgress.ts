@@ -54,6 +54,8 @@ export function useStudyProgress(
     const todayStr = now.toISOString().split('T')[0];
 
     if (!currentUser) {
+      if (typeof window === 'undefined') return;
+
       const today = now.toDateString();
       const lastLogin = localStorage.getItem('last_login_date');
       const currentStreak = parseInt(localStorage.getItem('streak_count') || '0', 10);
@@ -123,6 +125,8 @@ export function useStudyProgress(
     const todayStr = new Date().toISOString().split('T')[0];
 
     if (!user) {
+      if (typeof window === 'undefined') return;
+
       const localLogs = JSON.parse(localStorage.getItem('study_logs_local') || '{}');
       localLogs[todayStr] = (localLogs[todayStr] || 0) + 1;
       localStorage.setItem('study_logs_local', JSON.stringify(localLogs));
@@ -151,6 +155,11 @@ export function useStudyProgress(
 
   async function fetchStudyLogs(currentUser: StudyProgressUser | null) {
     if (!currentUser) {
+      if (typeof window === 'undefined') {
+        setStudyLogs({});
+        return;
+      }
+
       const localLogs = JSON.parse(localStorage.getItem('study_logs_local') || '{}');
       setStudyLogs(buildStudyLogsMap(localLogs));
       return;
@@ -180,7 +189,7 @@ export function useStudyProgress(
     const todayStr = new Date().toISOString().split('T')[0];
 
     if (lastStudyDate === todayStr) {
-      console.log('今日はもうストリーク更新済みです！');
+      showToast('今日は既にストリークを更新済みです。', 'info');
       return;
     }
 
@@ -199,7 +208,7 @@ export function useStudyProgress(
 
       setStreak(newStreak);
       setLastStudyDate(todayStr);
-      alert(`🔥 ストリーク達成！ ${newStreak} 日連続勉強中！`);
+      showToast(`🔥 ストリーク達成！ ${newStreak} 日連続勉強中！`, 'success');
     } catch (err) {
       console.error('Streak update failed:', err);
     }

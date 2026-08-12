@@ -4,12 +4,11 @@ import { NextResponse } from 'next/server';
 export async function GET() {
   const swCode = `
     self.addEventListener('install', (event) => {
-      console.log('Service Worker installed.');
       self.skipWaiting();
     });
 
     self.addEventListener('activate', (event) => {
-      console.log('Service Worker activated.');
+      // activated
     });
 
     self.addEventListener('push', (event) => {
