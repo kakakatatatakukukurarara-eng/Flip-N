@@ -24,26 +24,12 @@ export function useStudyProgress(
 ) {
   const [streak, setStreak] = useState(0);
   const [lastStudyDate, setLastStudyDate] = useState('');
-  const [flipCoins, setFlipCoins] = useState(0);
   const [dailyMissions, setDailyMissions] = useState(createInitialDailyMissions());
   const [studyLogs, setStudyLogs] = useState<Record<string, number>>({});
 
   const incrementMissionProgress = (type: MissionType) => {
     setDailyMissions((prev) => {
       const updated = incrementMissionProgressHelper(prev, type);
-
-      if (type === 'study' && prev.studyCount < 10 && updated.studyCount === 10) {
-        setFlipCoins((c) => c + 50);
-        showToast('✨ ミッション達成: 10枚学習 (+50 COINS!)', 'success');
-      }
-      if (type === 'test' && !prev.testCompleted && updated.testCompleted) {
-        setFlipCoins((c) => c + 30);
-        showToast('✨ ミッション達成: クイズに挑戦 (+30 COINS!)', 'success');
-      }
-      if (type === 'speak' && !prev.speakCompleted && updated.speakCompleted) {
-        setFlipCoins((c) => c + 40);
-        showToast('✨ ミッション達成: 発音分析に挑戦 (+40 COINS!)', 'success');
-      }
 
       return updated;
     });
@@ -219,8 +205,6 @@ export function useStudyProgress(
     setStreak,
     lastStudyDate,
     setLastStudyDate,
-    flipCoins,
-    setFlipCoins,
     dailyMissions,
     setDailyMissions,
     studyLogs,

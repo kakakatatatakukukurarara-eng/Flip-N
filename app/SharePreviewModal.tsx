@@ -4,7 +4,6 @@ import { toPng } from 'html-to-image'; // 軽量で綺麗な画像化ライブ�
 // Propsの型定義（既存のステートを引き継ぐ）
 interface SharePreviewProps {
   streak: number;
-  level: number;
   studyLogs: Record<string, number>;
   deckSize: number;  // 🌟 新しく使うものだけにする
   mastery: number;   // 🌟 新しく使うものだけにする
@@ -14,7 +13,6 @@ interface SharePreviewProps {
 
 export default function SharePreviewModal({
   streak,
-  level,
   studyLogs = {},
   deckSize = 0, // 🌟 Propsから受け取る
   mastery = 0,  // 🌟 Propsから受け取る
@@ -79,7 +77,6 @@ export default function SharePreviewModal({
           <div className="grid grid-cols-3 gap-2 border-t border-b py-3 my-2 border-slate-800/50 font-mono text-center">
             <div>
               <span className="text-[9px] text-slate-500 block">LEVEL</span>
-              <span className="text-xs font-bold text-purple-400">LV.{level}</span>
             </div>
             <div>
               <span className="text-[9px] text-slate-500 block">DECK SIZE</span>
@@ -128,7 +125,7 @@ export default function SharePreviewModal({
           <button
             onClick={() => {
               // 1. シェアしたいテキストを作成（改行は \n）
-              const text = `FLIP-N PRO で学習記録を達成しました！🔥\n\n📊 今日の成果\n・連続学習: {streak}日\n・現在のレベル: Lv.{level}\n・定着率: {mastery}%\n\n#FLIP_N_PRO #今日の積み上げ`;
+              const text = `FLIP-N PRO で学習記録を達成しました！🔥\n\n📊 今日の成果\n・連続学習: ${streak}日\n・定着率: ${mastery}%\n\n#FLIP_N_PRO #今日の積み上げ`;
 
               // 2. URLエンコードする（文字化け対策）
               const encodedText = encodeURIComponent(text);

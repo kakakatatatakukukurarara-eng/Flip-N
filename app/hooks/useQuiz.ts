@@ -77,7 +77,7 @@ export function useQuiz(
     }, [quizIndex, quizMode, testTimer, quizSelected, isTypingCorrect, booleanSelected]);
 
     // ⏱️ 時間切れ時の自動ペナルティ＆次へ進む処理
-    const handleTimeOut = () => {
+    function handleTimeOut() {
         speak('Time out');
         if (quizMode === 'choice4') {
             setQuizSelected('__TIMEOUT__');
@@ -89,10 +89,10 @@ export function useQuiz(
             setBooleanSelected('yes');
             setTimeout(() => { moveNext(); }, 1500);
         }
-    };
+    }
 
     // 問題のセットアップ（選択肢の生成や○×のシャッフル）
-    const setupQuestion = (index: number) => {
+    function setupQuestion(index: number) {
         if (!cards || cards.length < 4 || index >= cards.length) return;
         const currentCard = cards[index];
 
@@ -120,7 +120,7 @@ export function useQuiz(
         }
     };
 
-    const moveNext = () => {
+    function moveNext() {
         setQuizSelected(null);
         setTypingAnswer('');
         setIsTypingCorrect(null);
@@ -132,7 +132,7 @@ export function useQuiz(
             }
             return next;
         });
-    };
+    }
 
     // 4択クイズの回答判定
     const handleChoice4Answer = (option: string) => {

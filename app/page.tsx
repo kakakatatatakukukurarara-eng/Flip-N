@@ -24,8 +24,8 @@ import ManageTabContent from './components/ManageTabContent';
 import SharedTabContent from './components/SharedTabContent';
 import DashboardTabContent from './components/DashboardTabContent';
 import CourseSelectorModal from './components/CourseSelectorModal';
-import ExtensionModal from './components/ExtensionModal';
 import { COURSE_PRESETS, PRESET_DECKS } from './data/presets';
+import type { Deck } from './types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -43,6 +43,7 @@ interface Card {
   efactor?: number;
   repetition?: number;
   is_public: boolean;
+  deck_id?: string | null;
 }
 
 interface PreviewCard {
@@ -52,33 +53,48 @@ interface PreviewCard {
   category: string;
 }
 
+interface DeckProgress {
+  deckId: string | null;
+  title: string;
+  total: number;
+  mastered: number;
+  due: number;
+}
+
 interface PageUser {
   id: string;
   displayName?: string;
 }
 
-export interface LeaderboardUser {
-  name: string;
-  words: number;
+function normalizeSpeechText(text: string) {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, '').replace(/\s+/g, ' ').trim();
 }
 
+function calculatePronunciationScore(target: string, spoken: string) {
+  const expected = normalizeSpeechText(target);
+  const actual = normalizeSpeechText(spoken);
+  if (!expected || !actual) return 0;
+  if (expected === actual) return 100;
 
+  const previous = Array.from({ length: actual.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= expected.length; row += 1) {
+    const current = [row];
+    for (let column = 1; column <= actual.length; column += 1) {
+      current[column] = Math.min(
+        current[column - 1] + 1,
+        previous[column] + 1,
+        previous[column - 1] + (expected[row - 1] === actual[column - 1] ? 0 : 1),
+      );
+    }
+    for (let column = 0; column <= actual.length; column += 1) previous[column] = current[column];
+  }
 
+  const distance = previous[actual.length];
+  return Math.max(0, Math.round((1 - distance / Math.max(expected.length, actual.length)) * 100));
+}
 
 export default function UltimateStudyExperience() {
   const [user, setUser] = useState<PageUser | null>(null);
-
-  const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
-
-  const [isRankingLoading, setIsRankingLoading] = useState(true);
-
-  // 2. AIパートナー用のState
-  const [aiCharacter, setAiCharacter] = useState("🦊"); // 🦊(キツネ先生), 🤖(サイバーロボ), 👑(ツンデレキング)
-  const [aiMessage, setAiMessage] = useState("フリップ・エヌ プロへようこそ！今日の復習カードが君を待っているよ。のんびりやろうね。");
-
-  // 3. 共有ルーム（共同編集）用のState
-  const [currentRoomId, setCurrentRoomId] = useState("");
-  const [inputRoomId, setInputRoomId] = useState("");
 
   // 🎮 ミニクイズ用のState
   const [quickQuizCard, setQuickQuizCard] = useState<Card | null>(null); // 出題するカード
@@ -87,7 +103,6 @@ export default function UltimateStudyExperience() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null); // ユーザーが選んだ選択肢
 
   // 4. 新機能管理用の画面開閉State
-  const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
@@ -97,21 +112,23 @@ export default function UltimateStudyExperience() {
 
   const [cards, setCards] = useState<Card[]>([]);
   // 🗂️ デッキ（単語帳）用のState
-  const [decks, setDecks] = useState<Record<string, unknown>[]>([]);
+  const [decks, setDecks] = useState<Deck[]>([]);
+  const [allDeckCards, setAllDeckCards] = useState<Pick<Card, 'deck_id' | 'interval' | 'next_review_at'>[]>([]);
   const [currentDeckId, setCurrentDeckId] = useState<string | null>(null);
+  const [targetDeckId, setTargetDeckId] = useState<string | null>(null);
   const [newDeckTitle, setNewDeckTitle] = useState('');
   const [newDeckDesc, setNewDeckDesc] = useState('');
   const [isDeckPublic, setIsDeckPublic] = useState(false);
-  const [publicDecks, setPublicDecks] = useState<Record<string, unknown>[]>([]); // みんなが公開したデッキ用
   const [sharedCards, setSharedCards] = useState<Card[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('home');
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window === 'undefined') return 'dark';
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+
+  useEffect(() => {
     const savedTheme = window.localStorage.getItem('user_theme');
-    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
-  });
+    if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
+  }, []);
 
   function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
     setToastMessage(message);
@@ -176,55 +193,6 @@ export default function UltimateStudyExperience() {
     handleBooleanAnswer,
   } = useQuiz(cards, testTimer, speak); // 💡 testTimer と speak を渡して連動！
 
-  // 📊 Supabaseから本物のランキングデータを取得する
-  const fetchRealRanking = async () => {
-    setIsRankingLoading(true);
-    try {
-      // 💡 publicに共有されているカード、または全カードからユーザーごとの数をカウント
-      // ※SupabaseのRPC（ストアドプロシージャ）を使うか、集計用のクエリを実行します
-      const { data, error } = await supabase
-        .from('cards')
-        .select('user_id')
-        .eq('is_public', true); // 公開されているカードをベースに集計（または全体の統計）
-
-      if (error) throw error;
-
-      if (data) {
-        // ユーザーごとのカード数をカウントするオブジェクトを作成
-        const counts: { [key: string]: number } = {};
-        data.forEach((card: { user_id?: string }) => {
-          if (card.user_id) {
-            counts[card.user_id] = (counts[card.user_id] || 0) + 1;
-          }
-        });
-
-        // ランキング配列に整形（上位3名）
-        // 本来はuser_idからプロフィール名を引っ張りますが、簡易的に名称をマスキング、または固定値から変換
-        const sortedRanking = Object.keys(counts)
-          .map((userId) => {
-            // 自分のIDだったら「あなた」や設定中のdisplayNameにする
-            const isMe = userId === user?.id;
-            return {
-              name: isMe ? (user?.displayName || "あなた (You) 🔥") : `User_${userId.slice(0, 5)}`,
-              words: counts[userId],
-            };
-          })
-          .sort((a, b) => b.words - a.words) // 数の多い順にソート
-          .slice(0, 3); // トップ3を抽出
-
-        setLeaderboard(sortedRanking);
-      }
-    } catch (err) {
-      console.error("ランキングの取得に失敗しました:", err);
-      // 失敗したときのセーフティとして最小限の表示
-      setLeaderboard([
-        { name: user?.displayName || "あなた", words: cards.length }
-      ]);
-    } finally {
-      setIsRankingLoading(false);
-    }
-  };
-
   // 🎮 ミニクイズを生成する関数
   const generateQuickQuiz = () => {
     if (cards.length < 4) return; // 選択肢を作るために最低4枚必要
@@ -258,16 +226,6 @@ export default function UltimateStudyExperience() {
     }
   }, [activeTab, cards, quickQuizCard]);
 
-  // 🔄 ダッシュボード表示時にランキングを更新
-  useEffect(() => {
-    if (activeTab === 'dashboard') {
-      const id = window.setTimeout(() => {
-        void fetchRealRanking();
-      }, 0);
-      return () => window.clearTimeout(id);
-    }
-  }, [activeTab, cards.length]);
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       // メニューの外側、かつ、アイコンボタンの外側をクリックした場合のみ閉じる
@@ -292,8 +250,8 @@ export default function UltimateStudyExperience() {
     const reader = new FileReader();
     reader.onload = async (event) => {
       const text = event.target?.result as string;
-      const lines = text.split('\n');
-      const newCards: Array<Pick<Card, 'front' | 'back' | 'example' | 'category' | 'is_public' | 'interval' | 'next_review_at'>> = [];
+        const lines = text.split('\n');
+      const newCards: Array<Pick<Card, 'front' | 'back' | 'example' | 'category' | 'is_public' | 'interval' | 'next_review_at' | 'user_id' | 'deck_id'>> = [];
 
       // 簡易CSVパース (1行目: 英語, 2行目: 日本語, 3行目: 例文)
       lines.forEach((line) => {
@@ -306,62 +264,31 @@ export default function UltimateStudyExperience() {
             category: "Imported",
             is_public: false,
             interval: 1,
-            next_review_at: new Date().toISOString()
+            next_review_at: new Date().toISOString(),
+            user_id: user?.id,
+            deck_id: currentDeckId,
           });
         }
       });
 
-      if (newCards.length > 0) {
+      if (newCards.length > 0 && user) {
+        const { error } = await supabase.from('cards').insert(newCards);
+        if (error) {
+          showToast('CSVの保存に失敗しました。', 'error');
+          return;
+        }
+        await fetchCards();
         // 💡 ここで既存のcardsステートに追加（またはSupabaseにインサート）
         // setCards([...cards, ...newCards]); // 既存のカード配列がある場合
         showToast(`${newCards.length}個の単語をCSVから爆速インポートしました！`, 'success');
 
-        // AIパートナーに褒めさせる
-        triggerAiComment("import");
       }
     };
     reader.readAsText(file);
   };
 
-  // 🤖 AIパートナーのセリフ切り替えトリガー
-  // (※テスト満点時や、カード追加時などに `triggerAiComment("perfect")` のように呼び出します)
-  const triggerAiComment = (actionType: "perfect" | "import" | "streak" | "greet") => {
-    const messages = {
-      perfect: {
-        "🦊": "すごすぎる！満点じゃないか！君の脳の忘却曲線、完全にバグってるよ（褒め言葉）！",
-        "🤖": "エクセレント。全問正解データを確認。記憶回路への定着率100%を検知しました。",
-        "👑": "ふ、ふん、満点くらい当然じゃない。これで満足して明日サボったら許さないからね！"
-      },
-      import: {
-        "🦊": "大量インポート完了！これだけの単語を攻略しようとするなんて、やる気MAXだね！",
-        "🤖": "外部データの同期に成功。新規単語学習プログラムを開始する準備が整いました。",
-        "👑": "へぇ、他のアプリから乗り換えてくれたんだ？こっちの方が使いやすいに決まってるでしょ！"
-      },
-      streak: {
-        "🦊": "継続日数更新！毎日コツコツやれる君は、本当に英語学習の天才だよ！",
-        "🤖": "ストリーク更新を記録。継続学習は長期記憶定着に最も有効なアルゴリズムです。",
-        "👑": "毎日がんばるじゃない。…べ、別に君が毎日来るのを楽しみに待ってたわけじゃないわよ？"
-      }
-    };
-
-    // 現在選ばれているキャラクターのセリフをセット
-    const charMessages = messages[actionType as keyof typeof messages];
-    if (charMessages) {
-      setAiMessage(charMessages[aiCharacter as keyof typeof charMessages]);
-    }
-  };
-
-  // 👥 共同編集ルームへの参加・作成
-  const handleJoinRoom = () => {
-    if (!inputRoomId.trim()) return;
-    setCurrentRoomId(inputRoomId);
-    showToast(`共有ルーム【${inputRoomId}】に参加しました！このルームの単語帳を仲間と共同編集できます。`, 'success');
-  };
-
 
   // 📄 page.tsx の State定義が集まっている場所
-  const [level, setLevel] = useState(1);
-  const [title, setTitle] = useState('BEGINNER');
   const [showShareModal, setShowShareModal] = useState(false); // 🌟 モーダルの開閉管理
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
@@ -370,8 +297,6 @@ export default function UltimateStudyExperience() {
     setStreak,
     lastStudyDate,
     setLastStudyDate,
-    flipCoins,
-    setFlipCoins,
     dailyMissions,
     setDailyMissions,
     studyLogs,
@@ -418,12 +343,16 @@ export default function UltimateStudyExperience() {
         .single();
 
       if (data && !error) {
+        // 共通のプロファイル値をStateへ復元
         setEditDisplayName(data.display_name || '');
         setUserHobby(data.user_hobby || '');
         setDailyGoal(data.daily_goal || 20);
         setAvatarUrl(data.avatar_url || '');
+        setIsAutoPlay(data.is_autoplay ?? true);
+        setAudioSpeed(data.audio_speed || '1.0');
+        setTestTimer(data.test_timer || 'none');
 
-        // 🌟 ここからストリークの自動判定ロジック
+        // 🌟 ストリークの自動判定ロジック
         const savedStreak = data.streak_count || 0;
         const savedLastDate = data.last_study_date || '';
 
@@ -436,29 +365,17 @@ export default function UltimateStudyExperience() {
           const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
           if (diffDays > 1) {
-            // 💡 2日以上あいていたらサボり確定なのでストリークを0にリセット
+            // 2日以上あいていたらリセット
             setStreak(0);
             setLastStudyDate('');
-            // データベース側もリセット
             await supabase.from('profiles').update({ streak_count: 0, last_study_date: null }).eq('id', user.id);
           } else {
-            // 保持、または今日すでにやっていればそのままの日数をセット
             setStreak(savedStreak);
             setLastStudyDate(savedLastDate);
           }
         } else {
           setStreak(0);
         }
-      }
-
-      if (data && !error) {
-        // データベースから取得した値をフロントのStateに復元する
-        setEditDisplayName(data.display_name || '');
-        setUserHobby(data.user_hobby || '');
-        setDailyGoal(data.daily_goal || 20);
-        setIsAutoPlay(data.is_autoplay ?? true);
-        setAudioSpeed(data.audio_speed || '1.0');
-        setTestTimer(data.test_timer || 'none');
       }
     };
 
@@ -642,9 +559,27 @@ export default function UltimateStudyExperience() {
   }, []);
 
   useEffect(() => {
-    fetchCards();
-    fetchSharedCards();
-  }, [user, activeTab]);
+    void fetchMyDecks(user);
+    void fetchSharedCards();
+  }, [user]);
+
+  useEffect(() => {
+    void fetchCards();
+  }, [user, currentDeckId]);
+
+  const deckProgress: DeckProgress[] = [
+    { deckId: null, title: '未分類のカード', total: 0, mastered: 0, due: 0 },
+    ...decks.map((deck) => ({ deckId: deck.id, title: deck.title, total: 0, mastered: 0, due: 0 })),
+  ].map((progress) => {
+    const deckCards = allDeckCards.filter((card) => card.deck_id === progress.deckId);
+    const now = Date.now();
+    return {
+      ...progress,
+      total: deckCards.length,
+      mastered: deckCards.filter((card) => (card.interval || 0) > 1).length,
+      due: deckCards.filter((card) => !card.next_review_at || new Date(card.next_review_at).getTime() <= now).length,
+    };
+  }).filter((progress) => progress.total > 0 || progress.deckId !== null);
 
   async function fetchCards() {
     setLoading(true);
@@ -657,20 +592,56 @@ export default function UltimateStudyExperience() {
       const { data } = await supabase
         .from('cards')
         .select('*')
-        .eq('user_id', user.id)
-        .order('next_review_at', { ascending: true });
+        .eq('user_id', user.id);
 
-      if (data && data.length === 0) {
+      const filteredQuery = currentDeckId
+        ? supabase.from('cards').select('*').eq('user_id', user.id).eq('deck_id', currentDeckId)
+        : supabase.from('cards').select('*').eq('user_id', user.id).is('deck_id', null);
+      const { data: filteredData, error } = await filteredQuery.order('next_review_at', { ascending: true });
+
+      if (error) throw error;
+      if (filteredData && filteredData.length === 0 && !currentDeckId) {
         setShowCourseSelector(true);
         setCards([]);
-      } else if (data) {
-        setCards(data);
+      } else if (filteredData) {
+        setCards(filteredData);
       }
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function fetchMyDecks(currentUser: { id: string } | null) {
+    if (!currentUser) {
+      setDecks([]);
+      setCurrentDeckId(null);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('decks')
+      .select('id, title, description, is_public, user_id')
+      .eq('user_id', currentUser.id);
+
+    if (error) {
+      console.error('Failed to fetch decks:', error.message, error.details, error.hint, error.code);
+      showToast(`デッキ一覧を取得できません: ${error.message}`, 'error');
+      return;
+    }
+
+    const nextDecks = (data || []) as Deck[];
+    setDecks(nextDecks);
+    setCurrentDeckId((previous) => previous && nextDecks.some((deck) => deck.id === previous)
+      ? previous
+      : nextDecks[0]?.id || null);
+
+    const { data: cardData } = await supabase
+      .from('cards')
+      .select('deck_id, interval, next_review_at')
+      .eq('user_id', currentUser.id);
+    setAllDeckCards(cardData || []);
   }
 
   async function fetchSharedCards() {
@@ -698,7 +669,8 @@ export default function UltimateStudyExperience() {
           category: sharedCard.category || 'Imported',
           user_id: user.id,
           interval: 1,
-          is_public: false
+          is_public: false,
+          deck_id: currentDeckId,
         }
       ]);
       if (!error) {
@@ -715,40 +687,17 @@ export default function UltimateStudyExperience() {
   }
 
   // 🗂️ 1. 自分のデッキ一覧をSupabaseから取得する
-  async function fetchMyDecks(currentUser: { id: string } | null) {
-    if (!currentUser) return;
-    try {
-      const { data, error } = await supabase
-        .from('decks')
-        .select('*')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
-
-      if (data && !error) setDecks(data);
-    } catch (e) {
-      console.error("Failed to fetch decks:", e);
-    }
-  }
-
-  // 🌍 2. 他のユーザーが公開しているデッキ一覧を取得する
-  async function fetchPublicDecks() {
-    try {
-      const { data, error } = await supabase
-        .from('decks')
-        .select('*, profiles(id)') // 作成者の情報も一緒に取る（任意）
-        .eq('is_public', true)
-        .order('created_at', { ascending: false });
-
-      if (data && !error) setPublicDecks(data);
-    } catch (e) {
-      console.error("Failed to fetch public decks:", e);
-    }
-  }
-
   // ➕ 3. 新しいデッキ（単語帳）を作成する
   async function handleCreateDeck(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !newDeckTitle.trim()) return;
+    if (!user) {
+      showToast('デッキを作成するにはログインが必要です。', 'error');
+      return;
+    }
+    if (!newDeckTitle.trim()) {
+      showToast('単語帳の名前を入力してください。', 'error');
+      return;
+    }
 
     try {
       const { data, error } = await supabase
@@ -764,15 +713,50 @@ export default function UltimateStudyExperience() {
         .select()
         .single();
 
-      if (data && !error) {
-        setDecks(prev => [data, ...prev]);
-        setNewDeckTitle('');
-        setNewDeckDesc('');
-        setIsDeckPublic(false);
-        showToast('新しい単語帳を作成しました！🎉', 'success');
+      if (error || !data) {
+        console.error('Failed to create deck:', error?.message, error?.details, error?.hint, error?.code);
+        showToast(`デッキを作成できませんでした: ${error?.message || '保存結果が返りませんでした'}`, 'error');
+        return;
       }
+
+      setDecks(prev => [data as Deck, ...prev]);
+      setCurrentDeckId(data.id);
+      setNewDeckTitle('');
+      setNewDeckDesc('');
+      setIsDeckPublic(false);
+      showToast('新しい単語帳を作成しました！', 'success');
     } catch (e) {
-      console.error("Failed to create deck:", e);
+      console.error('Failed to create deck:', e);
+      showToast('デッキ作成中にエラーが発生しました。Supabaseの設定を確認してください。', 'error');
+    }
+  }
+
+  async function moveCardsToDeck(copyCards: boolean) {
+    if (!user || !targetDeckId || currentDeckId === targetDeckId || cards.length === 0) return;
+
+    try {
+      if (copyCards) {
+        const cardsToCopy = cards.map(({ id, ...card }) => ({
+          ...card,
+          user_id: user.id,
+          deck_id: targetDeckId,
+        }));
+        const { error } = await supabase.from('cards').insert(cardsToCopy);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('cards')
+          .update({ deck_id: targetDeckId })
+          .in('id', cards.map((card) => card.id));
+        if (error) throw error;
+      }
+
+      await fetchMyDecks(user);
+      await fetchCards();
+      showToast(copyCards ? `${cards.length}枚を別デッキへコピーしました。` : `${cards.length}枚を別デッキへ移動しました。`, 'success');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'デッキ操作に失敗しました。';
+      showToast(message, 'error');
     }
   }
 
@@ -850,6 +834,7 @@ export default function UltimateStudyExperience() {
       ...card,
       user_id: user.id,
       interval: 1,
+      deck_id: currentDeckId,
     }));
 
     try {
@@ -940,7 +925,8 @@ export default function UltimateStudyExperience() {
       category: c.category.trim() || 'AI Generated',
       user_id: user.id,
       interval: 1,
-      is_public: false
+      is_public: false,
+      deck_id: currentDeckId,
     }));
 
     try {
@@ -978,13 +964,6 @@ export default function UltimateStudyExperience() {
   };
 
   useEffect(() => {
-    const totalMastered = cards.filter(c => (c.interval || 0) > 1).length;
-    const newLevel = Math.floor(totalMastered / 5) + 1;
-    setLevel(newLevel);
-    if (newLevel >= 10) setTitle('MASTER');
-    else if (newLevel >= 5) setTitle('EXPERT');
-    else if (newLevel >= 3) setTitle('ADVANCED');
-    else setTitle('BEGINNER');
   }, [cards]);
 
   const displayCards = useMemo(() => {
@@ -1098,14 +1077,11 @@ export default function UltimateStudyExperience() {
 
     recognition.onresult = (event: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => {
       const speechToText = event.results[0][0].transcript;
-      const targetWord = displayCards[currentIndex].front;
-      if (speechToText.toLowerCase() === targetWord.toLowerCase()) {
-        setPronunciationScore(Math.floor(Math.random() * 10) + 90);
-        speak('Excellent!');
-      } else {
-        setPronunciationScore(Math.floor(Math.random() * 20) + 60);
-        speak('Try again.');
-      }
+      const targetWord = displayCards[currentIndex]?.front;
+      if (!targetWord) return;
+      const score = calculatePronunciationScore(targetWord, speechToText);
+      setPronunciationScore(score);
+      speak(score >= 80 ? 'Excellent!' : 'Try again.');
 
       incrementMissionProgress('speak');
     };
@@ -1131,7 +1107,8 @@ export default function UltimateStudyExperience() {
           example: newExample.trim() || null,
           category: newCategory.trim() || 'General',
           user_id: user.id,
-          is_public: newIsPublic
+          is_public: newIsPublic,
+          deck_id: currentDeckId,
         }
       ]);
       if (!error) {
@@ -1237,8 +1214,6 @@ export default function UltimateStudyExperience() {
         handleLogout={handleLogout}
         toggleTheme={toggleTheme}
         streak={streak}
-        level={level}
-        title={title}
         dailyGoal={dailyGoal}
         dailyMissions={dailyMissions}
         userHobby={userHobby}
@@ -1249,6 +1224,9 @@ export default function UltimateStudyExperience() {
         setIsSettingsOpen={setIsSettingsOpen}
         avatarButtonRef={avatarButtonRef}
         menuRef={menuRef}
+        decks={decks}
+        currentDeckId={currentDeckId}
+        setCurrentDeckId={setCurrentDeckId}
       />
 
       {/* 🔐 認証モーダル（外部コンポーネント化） */}
@@ -1357,10 +1335,22 @@ export default function UltimateStudyExperience() {
       {activeTab === 'manage' && (
         <ManageTabContent
           cards={cards}
+          decks={decks}
+          currentDeckId={currentDeckId}
+          newDeckTitle={newDeckTitle}
+          setNewDeckTitle={setNewDeckTitle}
+          newDeckDesc={newDeckDesc}
+          setNewDeckDesc={setNewDeckDesc}
+          isDeckPublic={isDeckPublic}
+          setIsDeckPublic={setIsDeckPublic}
+          handleCreateDeck={handleCreateDeck}
+          setCurrentDeckId={setCurrentDeckId}
+          targetDeckId={targetDeckId}
+          setTargetDeckId={setTargetDeckId}
+          moveCardsToDeck={moveCardsToDeck}
           subContainerClass={subContainerClass}
           inputBgClass={inputBgClass}
           cardClass={cardClass}
-          innerBoxClass={innerBoxClass}
           isDark={isDark}
           aiText={aiText}
           setAiText={setAiText}
@@ -1410,13 +1400,9 @@ export default function UltimateStudyExperience() {
         <SharedTabContent
           user={user}
           sharedCards={sharedCards}
-          currentRoomId={currentRoomId}
-          inputRoomId={inputRoomId}
-          setInputRoomId={setInputRoomId}
           subContainerClass={subContainerClass}
           cardClass={cardClass}
           isDark={isDark}
-          handleJoinRoom={handleJoinRoom}
           handleImportCard={handleImportCard}
         />
       )}
@@ -1425,25 +1411,15 @@ export default function UltimateStudyExperience() {
         <DashboardTabContent
           cards={cards}
           streak={streak}
-          level={level}
-          title={title}
           subContainerClass={subContainerClass}
           isDark={isDark}
-          innerBoxClass={innerBoxClass}
-          leaderboard={leaderboard}
-          isRankingLoading={isRankingLoading}
-          fetchRealRanking={fetchRealRanking}
-          aiCharacter={aiCharacter}
-          setAiCharacter={setAiCharacter}
-          aiMessage={aiMessage}
-          setAiMessage={setAiMessage}
-          flipCoins={flipCoins}
           dailyMissions={dailyMissions}
           studyLogs={studyLogs}
           theme={theme}
           setShowShareModal={setShowShareModal}
           mastery={mastery}
           mainTabMasteredCards={mainTabMasteredCards}
+          deckProgress={deckProgress}
         />
       )}
 
@@ -1457,19 +1433,18 @@ export default function UltimateStudyExperience() {
         <motion.div
           initial={{ opacity: 0, y: 50, scale: 0.9 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
-          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-center gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-xs w-full justify-center transition-all ${toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] flex items-start gap-2.5 px-4 py-3 rounded-xl border text-xs font-mono font-bold tracking-wide shadow-xl max-w-[min(42rem,calc(100vw-2rem))] w-max max-h-48 overflow-y-auto transition-all ${toastType === 'error' ? 'bg-red-500/10 border-red-500/30 text-red-400' : toastType === 'success' ? 'bg-green-500/10 border-green-500/30 text-green-400' : 'bg-blue-500/10 border-blue-500/30 text-blue-400'}`}
         >
           {toastType === 'success' && <svg className="w-4 h-4 text-green-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           {toastType === 'error' && <svg className="w-4 h-4 text-red-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
           {toastType === 'info' && <svg className="w-4 h-4 text-blue-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-          <span className="truncate">{toastMessage}</span>
+          <span className="whitespace-pre-wrap break-words">{toastMessage}</span>
         </motion.div>
       )}
 
       {showShareModal && (
         <SharePreviewModal
           streak={streak}
-          level={level}
           studyLogs={studyLogs}
           deckSize={cards.length}
           mastery={mastery}
@@ -1510,24 +1485,6 @@ export default function UltimateStudyExperience() {
           handleSaveSettings={handleSaveSettings}
         />
       )}
-
-      <ExtensionModal
-        isOpen={isExtensionModalOpen}
-        isDark={isDark}
-        aiCharacter={aiCharacter}
-        aiMessage={aiMessage}
-        currentRoomId={currentRoomId}
-        inputRoomId={inputRoomId}
-        setInputRoomId={setInputRoomId}
-        leaderboard={leaderboard}
-        onClose={() => setIsExtensionModalOpen(false)}
-        onSelectCharacter={(character) => {
-          setAiCharacter(character);
-          setAiMessage(character === '🦊' ? 'よろしくね！' : character === '🤖' ? 'システム起動。' : 'な、何よ？');
-        }}
-        onJoinRoom={handleJoinRoom}
-        onImportCsv={handleCSVImport}
-      />
 
     </div>
   );

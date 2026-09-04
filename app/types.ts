@@ -8,8 +8,17 @@ export interface Card {
   interval: number;
   next_review_at: string;
   user_id?: string;
+  deck_id?: string | null;
   efactor?: number;
   repetition?: number;
+}
+
+export interface Deck {
+  id: string;
+  title: string;
+  description?: string | null;
+  is_public?: boolean;
+  user_id?: string;
 }
 
 export interface User {

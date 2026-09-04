@@ -1,0 +1,16 @@
+{
+  "name": "Flip-N",
+  "short_name": "Flip-N",
+  "description": "英単語を効率よく学習するフラッシュカードアプリ",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#2563eb",
+  "icons": [
+    {
+      "src": "/icon.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ]
+}

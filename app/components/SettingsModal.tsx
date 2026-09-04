@@ -1,5 +1,6 @@
 // src/components/SettingsModal.tsx
 import React from 'react';
+import StyledSelect from './StyledSelect';
 
 interface SettingsModalProps {
   isDark: boolean;
@@ -50,15 +51,18 @@ export default function SettingsModal({
               <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の再生速度</p>
               <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>リスニング時の発音スピード</p>
             </div>
-            <select
+            <StyledSelect
+              ariaLabel="音声の再生速度"
               value={audioSpeed}
-              onChange={(e) => setAudioSpeed(e.target.value)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-            >
-              <option value="1.0">1.0x (標準)</option>
-              <option value="0.8">0.8x (ゆっくり)</option>
-              <option value="1.2">1.2x (速め)</option>
-            </select>
+              onChange={setAudioSpeed}
+              options={[
+                { value: '1.0', label: '1.0x (標準)' },
+                { value: '0.8', label: '0.8x (ゆっくり)' },
+                { value: '1.2', label: '1.2x (速め)' },
+              ]}
+              isDark={isDark}
+              className="w-40 shrink-0"
+            />
           </div>
 
           {/* 3. クイズの制限時間設定（セレクトボックス） */}
@@ -67,16 +71,19 @@ export default function SettingsModal({
               <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>テストの制限時間</p>
               <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>4択クイズやテストモード時の1問の制限</p>
             </div>
-            <select
+            <StyledSelect
+              ariaLabel="テストの制限時間"
               value={testTimer}
-              onChange={(e) => setTestTimer(e.target.value)}
-              className={`px-3 py-1.5 rounded-xl border text-xs font-bold focus:outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'}`}
-            >
-              <option value="none">制限なし</option>
-              <option value="5">5秒 (超シビア)</option>
-              <option value="10">10秒 (標準)</option>
-              <option value="30">30秒 (ゆったり)</option>
-            </select>
+              onChange={setTestTimer}
+              options={[
+                { value: 'none', label: '制限なし' },
+                { value: '5', label: '5秒 (超シビア)' },
+                { value: '10', label: '10秒 (標準)' },
+                { value: '30', label: '30秒 (ゆったり)' },
+              ]}
+              isDark={isDark}
+              className="w-40 shrink-0"
+            />
           </div>
         </div>
 

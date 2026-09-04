@@ -1,12 +1,26 @@
 import React from 'react';
 import type { Card, PreviewCard } from '../types';
+import type { Deck } from '../types';
+import StyledSelect from './StyledSelect';
 
 interface ManageTabContentProps {
   cards: Card[];
+  decks: Deck[];
+  currentDeckId: string | null;
+  newDeckTitle: string;
+  setNewDeckTitle: (value: string) => void;
+  newDeckDesc: string;
+  setNewDeckDesc: (value: string) => void;
+  isDeckPublic: boolean;
+  setIsDeckPublic: (value: boolean) => void;
+  handleCreateDeck: (event: React.FormEvent<HTMLFormElement>) => void;
+  setCurrentDeckId: (id: string | null) => void;
+  targetDeckId: string | null;
+  setTargetDeckId: (id: string | null) => void;
+  moveCardsToDeck: (copyCards: boolean) => void;
   subContainerClass: string;
   inputBgClass: string;
   cardClass: string;
-  innerBoxClass: string;
   isDark: boolean;
   aiText: string;
   setAiText: (value: string) => void;
@@ -53,10 +67,22 @@ interface ManageTabContentProps {
 
 export default function ManageTabContent({
   cards,
+  decks,
+  currentDeckId,
+  newDeckTitle,
+  setNewDeckTitle,
+  newDeckDesc,
+  setNewDeckDesc,
+  isDeckPublic,
+  setIsDeckPublic,
+  handleCreateDeck,
+  setCurrentDeckId,
+  targetDeckId,
+  setTargetDeckId,
+  moveCardsToDeck,
   subContainerClass,
   inputBgClass,
   cardClass,
-  innerBoxClass,
   isDark,
   aiText,
   setAiText,
@@ -102,6 +128,47 @@ export default function ManageTabContent({
 }: ManageTabContentProps) {
   return (
     <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
+      <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
+        <div className="flex flex-col md:flex-row md:items-end gap-3">
+          <label className="flex-1 text-[10px] font-mono font-bold text-slate-500 tracking-wider">
+            CURRENT DECK
+            <StyledSelect
+              ariaLabel="現在のデッキ"
+              value={currentDeckId || ''}
+              onChange={(value) => setCurrentDeckId(value || null)}
+              options={[{ value: '', label: '未分類のカード' }, ...decks.map((deck) => ({ value: deck.id, label: deck.title }))]}
+              isDark={isDark}
+              className="mt-1 w-full"
+            />
+          </label>
+          <form onSubmit={handleCreateDeck} className="flex flex-col sm:flex-row gap-2 flex-1">
+            <input required value={newDeckTitle} onChange={(event) => setNewDeckTitle(event.target.value)} placeholder="新しい単語帳の名前" className={`flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
+            <input value={newDeckDesc} onChange={(event) => setNewDeckDesc(event.target.value)} placeholder="説明（任意）" className={`flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
+            <label className="flex items-center gap-1.5 px-2 text-[10px] text-slate-400 whitespace-nowrap">
+              <input type="checkbox" checked={isDeckPublic} onChange={(event) => setIsDeckPublic(event.target.checked)} /> 公開
+            </label>
+            <button type="submit" className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold whitespace-nowrap">デッキ作成</button>
+          </form>
+        </div>
+        <p className="mt-2 text-[10px] text-slate-500">現在のデッキ: {decks.find((deck) => deck.id === currentDeckId)?.title || '未分類のカード'} / {cards.length}枚</p>
+        {decks.length > 0 && cards.length > 0 && (
+          <div className="mt-4 flex flex-col sm:flex-row gap-2 border-t border-slate-800/60 pt-4">
+            <div className="relative flex-1">
+              <StyledSelect
+                ariaLabel="操作先のデッキ"
+                value={targetDeckId || ''}
+                onChange={(value) => setTargetDeckId(value || null)}
+                options={[{ value: '', label: '操作先のデッキを選択' }, ...decks.filter((deck) => deck.id !== currentDeckId).map((deck) => ({ value: deck.id, label: deck.title }))]}
+                isDark={isDark}
+                className="w-full"
+              />
+                {/* <svg aria-hidden="true" className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.51a.75.75 0 01-1.08 1.06l-4.25-4.51a.75.75 0 01.02-1.06z" clipRule="evenodd" /></svg> */}
+            </div>
+            <button type="button" disabled={!targetDeckId} onClick={() => moveCardsToDeck(false)} className="px-3 py-2 rounded-xl border border-amber-500/30 text-amber-500 text-xs font-bold disabled:opacity-40">全て移動</button>
+            <button type="button" disabled={!targetDeckId} onClick={() => moveCardsToDeck(true)} className="px-3 py-2 rounded-xl border border-blue-500/30 text-blue-400 text-xs font-bold disabled:opacity-40">全てコピー</button>
+          </div>
+        )}
+      </section>
       <div className="flex justify-between items-center px-1">
         <h3 className="text-base font-black tracking-tight">単語帳の管理・編集</h3>
         <button

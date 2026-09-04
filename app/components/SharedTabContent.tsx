@@ -3,59 +3,22 @@ import React from 'react';
 interface SharedTabContentProps {
   user: any;
   sharedCards: any[];
-  currentRoomId: string;
-  inputRoomId: string;
-  setInputRoomId: (value: string) => void;
   subContainerClass: string;
   cardClass: string;
   isDark: boolean;
-  handleJoinRoom: () => void;
   handleImportCard: (card: any) => void;
 }
 
 export default function SharedTabContent({
   user,
   sharedCards,
-  currentRoomId,
-  inputRoomId,
-  setInputRoomId,
   subContainerClass,
   cardClass,
   isDark,
-  handleJoinRoom,
   handleImportCard,
 }: SharedTabContentProps) {
   return (
     <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-4 relative z-10">
-      <div className={`p-5 rounded-2xl border mb-6 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h3 className="text-xs font-black font-mono text-green-500 tracking-wider">👥 SHARED ROOM (共同編集ルーム)</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">同じルームIDを入力した仲間と、リアルタイムに同じ単語帳を編集・共有できます。</p>
-          </div>
-
-          <div className="flex gap-2 max-w-md w-full md:w-auto">
-            <input
-              type="text"
-              placeholder="ルームIDを入力"
-              value={inputRoomId}
-              onChange={(e) => setInputRoomId(e.target.value)}
-              className={`flex-1 md:w-48 px-3 py-2 rounded-xl text-xs border focus:outline-none ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white'}`}
-            />
-            <button onClick={handleJoinRoom} className="px-4 py-2 bg-green-600 text-white font-bold rounded-xl text-xs hover:bg-green-500 transition whitespace-nowrap">
-              参加 / 作成
-            </button>
-          </div>
-        </div>
-
-        {currentRoomId && (
-          <div className="mt-3 text-xs text-green-500 font-mono font-bold flex items-center gap-1.5 animate-pulse">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
-            ルーム接続中: {currentRoomId}
-          </div>
-        )}
-      </div>
-
       <div className="px-1">
         <h3 className="text-sm font-black tracking-tight">🌐 全体公開フレーズマーケット</h3>
         <p className="text-[11px] text-slate-400 mt-0.5">世界中のFLIP-Nユーザーが全体公開している有益な単語やフレーズを、自分の単語帳へワンタップでインポートできます。</p>

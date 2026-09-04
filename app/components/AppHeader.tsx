@@ -1,5 +1,7 @@
 import React from 'react';
 import type { User } from '../types';
+import type { Deck } from '../types';
+import StyledSelect from './StyledSelect';
 
 interface AppHeaderProps {
   user: User | null;
@@ -10,8 +12,6 @@ interface AppHeaderProps {
   handleLogout: (setActiveTab: React.Dispatch<React.SetStateAction<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>>) => void;
   toggleTheme: () => void;
   streak: number;
-  level: number;
-  title: string;
   dailyGoal: number;
   dailyMissions: {
     studyCount: number;
@@ -26,6 +26,9 @@ interface AppHeaderProps {
   setIsSettingsOpen: (open: boolean) => void;
   avatarButtonRef: React.RefObject<HTMLButtonElement | null>;
   menuRef: React.RefObject<HTMLDivElement | null>;
+  decks: Deck[];
+  currentDeckId: string | null;
+  setCurrentDeckId: (id: string | null) => void;
 }
 
 export default function AppHeader({
@@ -37,8 +40,6 @@ export default function AppHeader({
   handleLogout,
   toggleTheme,
   streak,
-  level,
-  title,
   dailyGoal,
   dailyMissions,
   userHobby,
@@ -49,6 +50,9 @@ export default function AppHeader({
   setIsSettingsOpen,
   avatarButtonRef,
   menuRef,
+  decks,
+  currentDeckId,
+  setCurrentDeckId,
 }: AppHeaderProps) {
   return (
     <header className={`px-6 py-3.5 border-b flex flex-col gap-4 md:flex-row md:items-center md:justify-between shadow-xs relative z-50 ${isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
@@ -66,11 +70,6 @@ export default function AppHeader({
             <span>{streak} DAYS</span>
           </div>
 
-          <div className="hidden md:flex items-center gap-2 text-[10px] font-mono tracking-wider border-l pl-4 border-slate-700/30">
-            <span className="text-blue-500 font-bold">LV.{level}</span>
-            <span className="text-slate-400">|</span>
-            <span className={`${isDark ? 'text-slate-300' : 'text-slate-600'} font-bold`}>{title}</span>
-          </div>
         </div>
 
         <div className="flex items-center gap-2 md:hidden">
@@ -86,6 +85,16 @@ export default function AppHeader({
       </div>
 
       <div className="flex flex-col md:flex-row items-center justify-between md:justify-end gap-4 w-full md:w-auto md:gap-6">
+        {user && (
+          <StyledSelect
+            ariaLabel="学習するデッキ"
+            value={currentDeckId || ''}
+            onChange={(value) => setCurrentDeckId(value || null)}
+            options={[{ value: '', label: '未分類のカード' }, ...decks.map((deck) => ({ value: deck.id, label: deck.title }))]}
+            isDark={isDark}
+            className="w-full md:w-48"
+          />
+        )}
         <nav className={`flex p-1 rounded-xl border overflow-x-auto w-full md:w-auto ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-100 border-slate-200'}`}>
           {[
             { id: 'home', label: 'HOME', icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg> },
