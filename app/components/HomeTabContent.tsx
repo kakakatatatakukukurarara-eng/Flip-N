@@ -140,7 +140,7 @@ export default function HomeTabContent({
           <div className="space-y-3">
             <div className={`p-4 rounded-xl border font-mono text-center transition-all ${innerBoxClass} ${quickQuizStatus === 'correct' ? 'border-green-500/50 bg-green-500/5' : quickQuizStatus === 'wrong' ? 'border-red-500/50 bg-red-500/5' : ''}`}>
               <span className="text-[9px] text-slate-500 block mb-1">
-                {quickQuizStatus === 'correct' ? '✨ CORRECT!' : quickQuizStatus === 'wrong' ? '❌ OOPS!' : '次の英単語の正しい意味は？'}
+                {quickQuizStatus === 'correct' ? '✨ CORRECT!' : quickQuizStatus === 'wrong' ? '❌ OOPS!' : '次の単語の正しい意味は？'}
               </span>
               <span className="text-sm font-black text-slate-800 tracking-wide uppercase">
                 {quickQuizCard.front}

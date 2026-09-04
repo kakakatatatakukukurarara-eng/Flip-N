@@ -24,6 +24,7 @@ import ManageTabContent from './components/ManageTabContent';
 import SharedTabContent from './components/SharedTabContent';
 import DashboardTabContent from './components/DashboardTabContent';
 import CourseSelectorModal from './components/CourseSelectorModal';
+import CardExplainModal, { type CardExplanation } from './components/CardExplainModal';
 import { COURSE_PRESETS, PRESET_DECKS } from './data/presets';
 import type { Deck } from './types';
 
@@ -420,6 +421,9 @@ export default function UltimateStudyExperience() {
 
   const [isProcessingImage, setIsProcessingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [explainCard, setExplainCard] = useState<Card | null>(null);
+  const [cardExplanation, setCardExplanation] = useState<CardExplanation | null>(null);
+  const [isExplainingCard, setIsExplainingCard] = useState(false);
 
   const playSound = (type: 'correct' | 'wrong') => {
     if (typeof window === 'undefined') return;
@@ -470,7 +474,7 @@ export default function UltimateStudyExperience() {
         return;
       }
 
-      showToast("📝 英語の抽出に成功！AI単語カードを生成中...", "info");
+      showToast("📝 文字の抽出に成功！AI単語カードを生成中...", "info");
 
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -503,6 +507,28 @@ export default function UltimateStudyExperience() {
       setIsProcessingImage(false);
     }
   };
+
+  async function handleExplainCard(card: Card) {
+    setExplainCard(card);
+    setCardExplanation(null);
+    setIsExplainingCard(true);
+
+    try {
+      const response = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ front: card.front, back: card.back, example: card.example, hobby: userHobby }),
+      });
+      const data = await response.json() as { explanation?: CardExplanation; error?: string };
+      if (!response.ok || !data.explanation) throw new Error(data.error || 'AI深掘りに失敗しました。');
+      setCardExplanation(data.explanation);
+    } catch (error) {
+      setExplainCard(null);
+      showToast(error instanceof Error ? error.message : 'AI深掘りに失敗しました。', 'error');
+    } finally {
+      setIsExplainingCard(false);
+    }
+  }
 
   const handleAiGenerate = async () => {
     try {
@@ -1071,7 +1097,16 @@ export default function UltimateStudyExperience() {
     setIsRecording(true);
     setPronunciationScore(null);
     const recognition = new SpeechRecognitionCtor();
-    recognition.lang = 'en-US';
+    const targetText = displayCards[currentIndex]?.front || '';
+    recognition.lang = /[\u3040-\u30ff]/.test(targetText)
+      ? 'ja-JP'
+      : /[\uac00-\ud7af]/.test(targetText)
+        ? 'ko-KR'
+        : /[\u4e00-\u9fff]/.test(targetText)
+          ? 'zh-CN'
+          : /[\u0400-\u04ff]/.test(targetText)
+            ? 'ru-RU'
+            : 'en-US';
     recognition.interimResults = false;
     recognition.maxAlternatives = 1;
 
@@ -1393,6 +1428,7 @@ export default function UltimateStudyExperience() {
           handleDeleteCard={handleDeleteCard}
           toggleCardPublic={toggleCardPublic}
           handleShareDeck={handleShareDeck}
+          onExplainCard={handleExplainCard}
         />
       )}
 
@@ -1450,6 +1486,16 @@ export default function UltimateStudyExperience() {
           mastery={mastery}
           isDark={isDark} // 🌟 これを追記してダークモードの情報を渡す！
           onClose={() => setShowShareModal(false)}
+        />
+      )}
+
+      {explainCard && (
+        <CardExplainModal
+          card={explainCard}
+          explanation={cardExplanation}
+          isLoading={isExplainingCard}
+          isDark={isDark}
+          onClose={() => { setExplainCard(null); setCardExplanation(null); }}
         />
       )}
 

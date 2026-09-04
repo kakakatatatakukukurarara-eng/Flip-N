@@ -63,6 +63,7 @@ interface ManageTabContentProps {
   handleDeleteCard: (id: number) => void;
   toggleCardPublic: (id: number, currentStatus: boolean) => void | Promise<void>;
   handleShareDeck: (title: string, description: string) => void;
+  onExplainCard: (card: Card) => void;
 }
 
 export default function ManageTabContent({
@@ -125,6 +126,7 @@ export default function ManageTabContent({
   handleDeleteCard,
   toggleCardPublic,
   handleShareDeck,
+  onExplainCard,
 }: ManageTabContentProps) {
   return (
     <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
@@ -181,10 +183,10 @@ export default function ManageTabContent({
 
       <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
         <h4 className="text-xs font-mono font-bold tracking-widest text-blue-500 uppercase mb-1">✨ AI Flashcard Generator</h4>
-        <p className="text-[11px] text-slate-400 mb-3">長文や単語リストを入力すると、AIが自動で「英語・日本語・例文」のカードを一度に解析して生成します。</p>
+        <p className="text-[11px] text-slate-400 mb-3">文章や用語リストを入れるだけで、AIが言語と分野を自動判定して単語帳カードを生成します。</p>
         <div className="flex flex-col gap-2">
           <textarea
-            placeholder="ここに英文や単語リストを入力... (例: Apple, Banana, Horizon)"
+            placeholder="ここに文章や用語リストを入力... (例: 光合成、鎌倉幕府、photosynthesis)"
             value={aiText}
             onChange={(e) => setAiText(e.target.value)}
             disabled={isGenerating}
@@ -285,7 +287,7 @@ export default function ManageTabContent({
       <div className={`p-5 rounded-2xl border mt-6 ${isDark ? 'bg-slate-950 border-slate-850' : 'bg-slate-50 border-slate-200'}`}>
         <h3 className="text-xs font-black font-mono mb-2 text-blue-500 tracking-wider">📁 CSV / ANKI DECK IMPORT</h3>
         <p className={`text-[11px] mb-4 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-          他アプリの単語データ（CSV）を一瞬で取り込みます。「英語,日本語,例文」の順に並んだファイルに対応。
+          他アプリの単語データ（CSV）を取り込みます。「学習する言葉,日本語の意味,例文」の順に並んだファイルに対応。
         </p>
 
         <label className={`block w-full text-center px-4 py-5 rounded-xl border-2 border-dashed transition-all cursor-pointer ${isDark ? 'border-slate-800 bg-slate-900/50 hover:border-blue-500' : 'border-slate-200 bg-white hover:border-blue-500'}`}>
@@ -302,12 +304,12 @@ export default function ManageTabContent({
           <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase mb-4">Add New Card</h4>
           <form onSubmit={handleAddCard} className="space-y-3">
             <div>
-              <label className="block text-[9px] font-mono font-bold text-slate-500 mb-1">FRONT (ENGLISH)</label>
-              <input ref={frontInputRef} type="text" placeholder="English word / phrase" value={newFront} onChange={(e) => setNewFront(e.target.value)} required className={`w-full px-3 py-2 rounded-xl text-xs font-mono border focus:outline-hidden ${inputBgClass}`} />
+              <label className="block text-[9px] font-mono font-bold text-slate-500 mb-1">FRONT (学習する言葉)</label>
+              <input ref={frontInputRef} type="text" placeholder="単語 / フレーズ" value={newFront} onChange={(e) => setNewFront(e.target.value)} required className={`w-full px-3 py-2 rounded-xl text-xs font-mono border focus:outline-hidden ${inputBgClass}`} />
             </div>
             <div>
-              <label className="block text-[9px] font-mono font-bold text-slate-500 mb-1">BACK (JAPANESE)</label>
-              <input type="text" placeholder="日本語の意味" value={newBack} onChange={(e) => setNewBack(e.target.value)} required className={`w-full px-3 py-2 rounded-xl text-xs border focus:outline-hidden ${inputBgClass}`} />
+              <label className="block text-[9px] font-mono font-bold text-slate-500 mb-1">BACK (日本語の意味)</label>
+              <input type="text" placeholder="意味・翻訳" value={newBack} onChange={(e) => setNewBack(e.target.value)} required className={`w-full px-3 py-2 rounded-xl text-xs border focus:outline-hidden ${inputBgClass}`} />
             </div>
             <div>
               <label className="block text-[9px] font-mono font-bold text-slate-500 mb-1">EXAMPLE (OPTIONAL)</label>
@@ -375,6 +377,9 @@ export default function ManageTabContent({
                       </div>
                     </div>
                     <div className="flex gap-1">
+                      <button onClick={() => onExplainCard(card)} title="AIで深掘り" className="p-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 text-blue-400 transition">
+                        <span className="text-[11px] font-bold">AI</span>
+                      </button>
                       <button onClick={() => startEditing(card)} className="p-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></button>
                       <button onClick={() => handleDeleteCard(card.id)} className="p-1.5 rounded-lg border border-slate-800 hover:bg-red-500/10 text-slate-400 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>
                     </div>
