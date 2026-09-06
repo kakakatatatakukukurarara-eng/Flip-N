@@ -129,9 +129,9 @@ export default function ManageTabContent({
   onExplainCard,
 }: ManageTabContentProps) {
   return (
-    <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
+    <main className="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
       <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
-        <div className="flex flex-col md:flex-row md:items-end gap-3">
+        <div className="flex flex-col lg:flex-row lg:items-end gap-3">
           <label className="flex-1 text-[10px] font-mono font-bold text-slate-500 tracking-wider">
             CURRENT DECK
             <StyledSelect
@@ -143,7 +143,7 @@ export default function ManageTabContent({
               className="mt-1 w-full"
             />
           </label>
-          <form onSubmit={handleCreateDeck} className="flex flex-col sm:flex-row gap-2 flex-1">
+          <form onSubmit={handleCreateDeck} className="flex min-w-0 flex-col sm:flex-row gap-2 flex-1">
             <input required value={newDeckTitle} onChange={(event) => setNewDeckTitle(event.target.value)} placeholder="新しい単語帳の名前" className={`flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
             <input value={newDeckDesc} onChange={(event) => setNewDeckDesc(event.target.value)} placeholder="説明（任意）" className={`flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
             <label className="flex items-center gap-1.5 px-2 text-[10px] text-slate-400 whitespace-nowrap">

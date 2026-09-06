@@ -32,7 +32,7 @@ export default function ProfileModal({
 }: ProfileModalProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
+      <div className={`w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl shadow-2xl p-4 sm:p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
         <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>USER PROFILE</h2>
 
         <div className="space-y-5">

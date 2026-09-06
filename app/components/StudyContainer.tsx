@@ -58,17 +58,17 @@ export default function StudyContainer({
     handleResponse
 }: StudyContainerProps) {
     return (
-        <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-lg w-full mx-auto relative z-10">
+        <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 max-w-lg w-full mx-auto relative z-10">
 
             {/* カテゴリフィルター & 検索 */}
-            <div className="w-full flex gap-2 mb-4 items-center">
+            <div className="w-full flex flex-col sm:flex-row gap-2 mb-4 items-stretch sm:items-center">
                 <StyledSelect
                     ariaLabel="カテゴリを選択"
                     value={selectedCategory}
                     onChange={setSelectedCategory}
                     options={[{ value: 'All', label: 'ALL CATEGORIES' }, ...uniqueCategories.map((cat) => ({ value: cat, label: cat.toUpperCase() }))]}
                     isDark={inputBgClass.includes('bg-slate-800')}
-                    className="min-w-0 shrink-0"
+                    className="w-full sm:w-auto min-w-0 shrink-0"
                 />
                 <div className="relative flex-grow">
                     <input

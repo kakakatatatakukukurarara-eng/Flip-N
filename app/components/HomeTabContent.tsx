@@ -63,7 +63,7 @@ export default function HomeTabContent({
   setCurrentIndex,
 }: HomeTabContentProps) {
   return (
-    <main className="flex-grow flex flex-col p-6 max-w-4xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <main className="flex-grow flex flex-col p-4 sm:p-6 max-w-4xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="py-4">
         <h2 className="text-2xl font-black tracking-tight">
           おかえりなさい、{user?.displayName || 'ゲスト'}さん

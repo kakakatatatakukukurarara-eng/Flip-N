@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+};
+
 export const metadata = {
   title: 'Flip-N | AI単語帳',
   description: 'AIで単語やフレーズを整理して学習できる、間隔反復対応の単語帳アプリ。',

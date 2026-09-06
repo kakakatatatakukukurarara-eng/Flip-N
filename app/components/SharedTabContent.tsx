@@ -18,7 +18,7 @@ export default function SharedTabContent({
   handleImportCard,
 }: SharedTabContentProps) {
   return (
-    <main className="flex-grow p-6 max-w-4xl w-full mx-auto space-y-4 relative z-10">
+    <main className="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto space-y-4 relative z-10">
       <div className="px-1">
         <h3 className="text-sm font-black tracking-tight">🌐 全体公開フレーズマーケット</h3>
         <p className="text-[11px] text-slate-400 mt-0.5">世界中のFLIP-Nユーザーが全体公開している有益な単語やフレーズを、自分の単語帳へワンタップでインポートできます。</p>

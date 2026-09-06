@@ -27,12 +27,12 @@ export default function SettingsModal({
 }: SettingsModalProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className={`w-full max-w-md rounded-2xl shadow-2xl p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
+      <div className={`w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl shadow-2xl p-4 sm:p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
         <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>SETTINGS</h2>
 
         <div className="space-y-5">
           {/* 1. 音声自動再生（トグルスイッチ） */}
-          <div className="flex items-center justify-between p-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-1">
             <div>
               <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の自動再生</p>
               <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>カードをめくった時に発音を自動再生</p>
@@ -46,7 +46,7 @@ export default function SettingsModal({
           </div>
 
           {/* 2. 音声再生スピード（セレクトボックス） */}
-          <div className="flex items-center justify-between p-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-1">
             <div>
               <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-slate-800'}`}>音声の再生速度</p>
               <p className={`text-[10px] ${isDark ? 'text-slate-500' : 'text-slate-400'}`}>リスニング時の発音スピード</p>

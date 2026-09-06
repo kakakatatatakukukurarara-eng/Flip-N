@@ -67,7 +67,7 @@ export default function QuizContainer({
 
     if (!cards || cards.length < 4) {
         return (
-            <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-sm w-full mx-auto relative z-10">
+            <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 max-w-sm w-full mx-auto relative z-10">
                 <div className={`w-full p-8 text-center border font-sans text-xs font-semibold text-slate-400 ${subContainerClass}`}>
                     クイズを開始するには最低4枚のカードが必要です。
                 </div>
@@ -76,7 +76,7 @@ export default function QuizContainer({
     }
 
     return (
-        <main className="flex-grow flex flex-col items-center justify-center p-6 max-w-sm w-full mx-auto relative z-10 space-y-6">
+        <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 max-w-sm w-full mx-auto relative z-10 space-y-6">
 
             {/* 🌟 モードセレクター（メリハリを出しつつクリーンに） */}
             {quizIndex < cards.length && (

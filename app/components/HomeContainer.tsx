@@ -54,7 +54,7 @@ export default function HomeContainer({
   const progressPercent = Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100));
 
   return (
-    <main className="flex-grow flex flex-col p-6 max-w-4xl w-full mx-auto relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <main className="flex-grow flex flex-col p-4 sm:p-6 max-w-4xl w-full mx-auto relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
 
       {/* 🌟 ウェルカムヘッダー */}
       <section className="pt-2 pb-4 border-b border-slate-200/50 dark:border-slate-800">
