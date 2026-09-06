@@ -573,15 +573,28 @@ export default function UltimateStudyExperience() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
+    let isMounted = true;
+
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
+      if (error) {
+        console.warn('保存済みの認証セッションを復元できませんでした。再ログインが必要です。', error.message);
+        await supabase.auth.signOut({ scope: 'local' });
+      }
+      if (isMounted) setUser(error ? null : session?.user ?? null);
+    }).catch(async (error) => {
+      console.warn('認証セッションの確認に失敗しました。', error);
+      await supabase.auth.signOut({ scope: 'local' });
+      if (isMounted) setUser(null);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -620,16 +633,25 @@ export default function UltimateStudyExperience() {
         .select('*')
         .eq('user_id', user.id);
 
+      const { count: deckCount, error: deckCountError } = await supabase
+        .from('decks')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (deckCountError) throw deckCountError;
+
       const filteredQuery = currentDeckId
         ? supabase.from('cards').select('*').eq('user_id', user.id).eq('deck_id', currentDeckId)
         : supabase.from('cards').select('*').eq('user_id', user.id).is('deck_id', null);
       const { data: filteredData, error } = await filteredQuery.order('next_review_at', { ascending: true });
 
       if (error) throw error;
-      if (filteredData && filteredData.length === 0 && !currentDeckId) {
+      const isFirstTimeUser = !currentDeckId && (data?.length || 0) === 0 && (deckCount || 0) === 0;
+      if (filteredData && filteredData.length === 0 && isFirstTimeUser) {
         setShowCourseSelector(true);
         setCards([]);
       } else if (filteredData) {
+        setShowCourseSelector(false);
         setCards(filteredData);
       }
     } catch (e) {

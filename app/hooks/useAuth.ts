@@ -98,7 +98,7 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
     // 🚪 ログアウト
     const handleLogout = async (setActiveTab: React.Dispatch<React.SetStateAction<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>>) => {
         if (!ensureAuthReady()) return;
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: 'local' });
         showToast('ログアウトしました', 'info');
         setActiveTab('study');
     };
