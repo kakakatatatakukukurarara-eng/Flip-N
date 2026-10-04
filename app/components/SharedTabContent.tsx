@@ -1,12 +1,15 @@
 import React from 'react';
+import type { Card, User } from '../types';
+
+type SharedCard = Card;
 
 interface SharedTabContentProps {
-  user: any;
-  sharedCards: any[];
+  user: User | null;
+  sharedCards: SharedCard[];
   subContainerClass: string;
   cardClass: string;
   isDark: boolean;
-  handleImportCard: (card: any) => void;
+  handleImportCard: (card: Card) => void | Promise<void>;
 }
 
 export default function SharedTabContent({

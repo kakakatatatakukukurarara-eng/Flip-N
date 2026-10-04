@@ -1,15 +1,20 @@
 // src/hooks/useSettings.ts
 import { useState } from 'react';
+import type { SupabaseClientMinimal } from '../types';
 
-export function useSettings(user: any, supabase: any, showToast: (msg: string, type: 'success' | 'error') => void) {
+type SettingsUser = { id: string } | null;
+
+export function useSettings(
+  user: SettingsUser,
+  supabase: SupabaseClientMinimal,
+  showToast: (msg: string, type: 'success' | 'error') => void,
+) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  
-  // モーダル内で管理する設定関連のState
+
   const [isAutoPlay, setIsAutoPlay] = useState(true);
   const [audioSpeed, setAudioSpeed] = useState('1.0');
   const [testTimer, setTestTimer] = useState('none');
 
-  // 設定の保存処理
   const handleSaveSettings = async () => {
     if (!user) return;
     try {
@@ -27,8 +32,8 @@ export function useSettings(user: any, supabase: any, showToast: (msg: string, t
       showToast('設定をアカウントに保存しました！', 'success');
       setIsSettingsOpen(false);
     } catch (err) {
-      console.error("設定の保存に失敗:", err);
-      showToast("保存に失敗しました。", "error");
+      console.error('設定の保存に失敗:', err);
+      showToast('保存に失敗しました。', 'error');
     }
   };
 

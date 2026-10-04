@@ -1,13 +1,16 @@
 // src/components/QuizContainer.tsx
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence, motion } from 'framer-motion';
+import type { Card } from '../types';
+
+type QuizMode = 'choice4' | 'typing' | 'boolean';
 
 interface QuizContainerProps {
-    cards: any[];
+    cards: Card[];
     isDark: boolean;
     testTimer: string;
-    quizMode: 'choice4' | 'typing' | 'boolean';
-    setQuizMode: (mode: 'choice4' | 'typing' | 'boolean') => void;
+    quizMode: QuizMode;
+    setQuizMode: (mode: QuizMode) => void;
     quizIndex: number;
     quizScore: number;
     quizOptions: string[];
@@ -82,14 +85,14 @@ export default function QuizContainer({
             {quizIndex < cards.length && (
                 <div className={`w-full p-1 rounded-2xl flex border ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-slate-50 border-slate-200/40'}`}>
                     {[
-                        { id: 'choice4', label: 'Choice' },
-                        { id: 'typing', label: 'Typing' },
-                        { id: 'boolean', label: 'True / False' }
+                        { id: 'choice4' as const, label: 'Choice' },
+                        { id: 'typing' as const, label: 'Typing' },
+                        { id: 'boolean' as const, label: 'True / False' }
                     ].map((mode) => (
                         <button
                             key={mode.id}
                             disabled={isAnswered}
-                            onClick={() => setQuizMode(mode.id as any)}
+                            onClick={() => setQuizMode(mode.id)}
                             className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold tracking-tight transition-all duration-200 ${quizMode === mode.id
                                     ? isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-800 shadow-xs border border-slate-200/30'
                                     : 'text-slate-400/90 hover:text-slate-600'
@@ -139,7 +142,7 @@ export default function QuizContainer({
                             <div className="space-y-0.5">
                                 <h3 className="text-[15px] font-bold tracking-tight text-slate-800 dark:text-slate-50">{cards[quizIndex].back}</h3>
                                 {cards[quizIndex].example && (
-                                    <p className="text-xs text-slate-400 font-medium italic pt-1">"{cards[quizIndex].example}"</p>
+                                    <p className="text-xs text-slate-400 font-medium italic pt-1">{cards[quizIndex].example}</p>
                                 )}
                             </div>
                         )}
@@ -273,7 +276,7 @@ export default function QuizContainer({
                                         <p className="text-[10px] font-bold text-slate-400 font-mono tracking-tight">
                                             {quizMode === 'choice4' && `Correct: ${cards[quizIndex].back}`}
                                             {quizMode === 'typing' && `Correct: ${cards[quizIndex].front}`}
-                                            {quizMode === 'boolean' && `"${cards[quizIndex].front}" is "${cards[quizIndex].back}"`}
+                                            {quizMode === 'boolean' && `Correct answer: ${cards[quizIndex].front} = ${cards[quizIndex].back}`}
                                         </p>
                                     )}
                                 </motion.div>

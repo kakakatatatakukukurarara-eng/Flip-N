@@ -108,9 +108,6 @@ export default function UltimateStudyExperience() {
   const menuRef = useRef<HTMLDivElement>(null);
   const avatarButtonRef = useRef<HTMLButtonElement>(null);
 
-  // 'home' = ホーム画面, 'study' = 単語カード/学習画面
-  const [currentScreen] = useState<'home' | 'study'>('home');
-
   const [cards, setCards] = useState<Card[]>([]);
   // 🗂️ デッキ（単語帳）用のState
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -124,12 +121,11 @@ export default function UltimateStudyExperience() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('home');
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-
-  useEffect(() => {
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window === 'undefined') return 'dark';
     const savedTheme = window.localStorage.getItem('user_theme');
-    if (savedTheme === 'light' || savedTheme === 'dark') setTheme(savedTheme);
-  }, []);
+    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+  });
 
   function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
     setToastMessage(message);

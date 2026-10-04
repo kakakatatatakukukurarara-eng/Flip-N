@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { SupabaseClientMinimal } from '../types';
 import { buildStudyLogsMap, createInitialDailyMissions, incrementMissionProgress as incrementMissionProgressHelper } from '../lib/studyGame';
 
 export type MissionType = 'study' | 'test' | 'speak';
@@ -13,13 +14,9 @@ type StudyLogRecord = {
   card_count: number;
 };
 
-type StudyProgressSupabaseClient = {
-  from: (table: string) => any;
-};
-
 export function useStudyProgress(
   user: StudyProgressUser | null,
-  supabase: StudyProgressSupabaseClient,
+  supabase: SupabaseClientMinimal,
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void
 ) {
   const [streak, setStreak] = useState(0);

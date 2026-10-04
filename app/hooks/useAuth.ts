@@ -21,16 +21,17 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
     const ensureAuthReady = () => {
         if (!supabase?.auth) {
             showToast('認証設定が読み込めていません。Supabase の設定を確認してください。', 'error');
-            return false;
+            return null;
         }
-        return true;
+        return supabase.auth;
     };
 
     // ✉️ メール・パスワード認証（ログイン / サインアップ）
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        if (!ensureAuthReady()) return;
+        const auth = ensureAuthReady();
+        if (!auth) return;
 
         const trimmedEmail = email.trim();
         const trimmedPassword = password.trim();
@@ -47,7 +48,7 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
 
         try {
             if (authMode === 'signup') {
-                const { error } = await supabase.auth.signUp({
+                const { error } = await auth.signUp({
                     email: trimmedEmail,
                     password: trimmedPassword,
                     options: {
@@ -62,7 +63,7 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
 
                 showToast('アカウント確認メールを送信しました。受信箱を確認してください。', 'success');
             } else {
-                const { error } = await supabase.auth.signInWithPassword({
+                const { error } = await auth.signInWithPassword({
                     email: trimmedEmail,
                     password: trimmedPassword,
                 });
@@ -85,10 +86,11 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
 
     // 🌐 OAuth（Google / GitHub）ログイン
     const handleOAuthLogin = async (provider: 'google' | 'github') => {
-        if (!ensureAuthReady()) return;
+        const auth = ensureAuthReady();
+        if (!auth) return;
 
         const redirectUrl = getAuthRedirectUrl();
-        const { error } = await supabase.auth.signInWithOAuth({
+        const { error } = await auth.signInWithOAuth({
             provider,
             options: { redirectTo: redirectUrl }
         });
@@ -97,8 +99,9 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
 
     // 🚪 ログアウト
     const handleLogout = async (setActiveTab: React.Dispatch<React.SetStateAction<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>>) => {
-        if (!ensureAuthReady()) return;
-        await supabase.auth.signOut({ scope: 'local' });
+        const auth = ensureAuthReady();
+        if (!auth) return;
+        await auth.signOut({ scope: 'local' });
         showToast('ログアウトしました', 'info');
         setActiveTab('study');
     };

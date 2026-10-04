@@ -1,18 +1,18 @@
 import React from 'react';
+import type { Card, CardLike, User } from '../types';
 
-interface CardLike {
-  id: number;
-  front: string;
-  back: string;
-  example?: string | null;
-  category?: string;
-  interval?: number;
-  repetition?: number;
-  is_public?: boolean;
-}
+type PresetDeckCard = Pick<Card, 'front' | 'back' | 'example' | 'category'> & { id?: number };
+type PresetDeck = {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  icon: string;
+  cards: PresetDeckCard[];
+};
 
 interface HomeTabContentProps {
-  user: any;
+  user: User | null;
   userHobby: string;
   streak: number;
   dailyGoal: number;
@@ -21,12 +21,12 @@ interface HomeTabContentProps {
     testCompleted: boolean;
     speakCompleted: boolean;
   };
-  cards: CardLike[];
+  cards: Card[];
   subContainerClass: string;
   innerBoxClass: string;
-  setActiveTab: (tab: any) => void;
+  setActiveTab: (tab: 'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard') => void;
   setSelectedCategory: (value: string) => void;
-  quickQuizCard: any;
+  quickQuizCard: Card | null;
   quickQuizStatus: 'idle' | 'correct' | 'wrong';
   quickQuizOptions: string[];
   selectedOption: string | null;
@@ -34,8 +34,8 @@ interface HomeTabContentProps {
   generateQuickQuiz: () => void;
   speak: (text: string) => void;
   setQuickQuizStatus: (status: 'idle' | 'correct' | 'wrong') => void;
-  PRESET_DECKS: any[];
-  setCards: (cards: any[]) => void;
+  PRESET_DECKS: PresetDeck[];
+  setCards: React.Dispatch<React.SetStateAction<Card[]>>;
   setCurrentIndex: (index: number) => void;
 }
 
@@ -87,7 +87,7 @@ export default function HomeTabContent({
 
         <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
           <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY'S GOAL PROGRESS
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY&apos;S GOAL PROGRESS
           </div>
           <div className="flex justify-between items-end my-1">
             <span className="text-4xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
@@ -118,7 +118,7 @@ export default function HomeTabContent({
           onClick={() => setActiveTab('manage')}
           className={`p-4 rounded-xl border font-mono font-bold text-xs tracking-wider hover:bg-slate-800/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
         >
-          <span>✨ Create & Generate Cards</span>
+          <span>✨ Create &amp; Generate Cards</span>
         </button>
       </div>
 
@@ -199,18 +199,18 @@ export default function HomeTabContent({
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> NEEDS REVIEW
           </div>
           <span className="text-[9px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-md">
-            {cards.filter((c) => c.interval! <= 1 || c.repetition === 0).length} CARDS
+            {cards.filter((c) => (c.interval ?? 1) <= 1 || c.repetition === 0).length} CARDS
           </span>
         </div>
 
-        {cards.filter((c) => c.interval! <= 1 || c.repetition === 0).length > 0 ? (
+        {cards.filter((c) => (c.interval ?? 1) <= 1 || c.repetition === 0).length > 0 ? (
           <div className="space-y-3">
             <p className="text-[11px] text-slate-400">
               最近 「AGAIN」 を選んだ単語、または記憶が薄れている単語があります。忘れる前に復習しましょう！
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-              {cards.filter((c) => c.interval! <= 1 || c.repetition === 0).slice(0, 3).map((card, idx) => (
+              {cards.filter((c) => (c.interval ?? 1) <= 1 || c.repetition === 0).slice(0, 3).map((card, idx) => (
                 <div key={idx} className={`p-2.5 rounded-xl border text-center font-mono ${innerBoxClass}`}>
                   <div className="text-xs font-bold text-slate-800 truncate">{card.front}</div>
                   <div className="text-[9px] text-slate-500 truncate mt-0.5">{card.back}</div>
@@ -260,11 +260,12 @@ export default function HomeTabContent({
                 <button
                   onClick={() => {
                     const updatedCards = [...cards];
-                    deck.cards.forEach((presetCard: any) => {
-                      if (!updatedCards.some((c: any) => c.front.toLowerCase() === presetCard.front.toLowerCase())) {
+                    deck.cards.forEach((presetCard) => {
+                      const cardAlreadyExists = updatedCards.some((c) => c.front.toLowerCase() === presetCard.front?.toLowerCase());
+                      if (!cardAlreadyExists && presetCard.front) {
                         updatedCards.push({
                           ...presetCard,
-                          id: cards.length > 0 ? Math.max(...cards.map((c: any) => c.id)) + 1 + Math.floor(Math.random() * 1000) : Math.floor(Math.random() * 1000),
+                          id: cards.length > 0 ? Math.max(...cards.map((c) => c.id)) + 1 + Math.floor(Math.random() * 1000) : Math.floor(Math.random() * 1000),
                           interval: 1,
                           repetition: 0,
                           efactor: 2.5,
@@ -279,7 +280,7 @@ export default function HomeTabContent({
                     setActiveTab('study');
                     setCurrentIndex(0);
 
-                    alert(`「${deck.title}」を単語帳に追加しました！さっそく学習を始めましょう！`);
+                    window.alert(`「${deck.title}」を単語帳に追加しました！さっそく学習を始めましょう！`);
                   }}
                   className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 font-mono font-bold text-[11px] tracking-wide rounded-xl border border-slate-800 transition active:scale-[0.98]"
                 >

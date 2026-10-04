@@ -1,30 +1,27 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type MotionValue } from 'framer-motion';
+import type { Card } from '../types';
 import StyledSelect from './StyledSelect';
 
-// page.tsxから受け取るすべてのデータや関数の型定義
 interface StudyContainerProps {
     selectedCategory: string;
     setSelectedCategory: (value: string) => void;
     uniqueCategories: string[];
     searchQuery: string;
     setSearchQuery: (value: string) => void;
-    displayCards: any[];
+    displayCards: Card[];
     currentIndex: number;
     setCurrentIndex: (index: number | ((prev: number) => number)) => void;
     isFlipped: boolean;
     setIsFlipped: (flipped: boolean) => void;
-    // 3Dアニメーション用のMotionValue
-    x: any;
-    y: any;
-    rotateX: any;
-    rotateY: any;
-    // デザイン用のスタイルクラス
+    x: MotionValue<number>;
+    y: MotionValue<number>;
+    rotateX: MotionValue<number>;
+    rotateY: MotionValue<number>;
     inputBgClass: string;
     subContainerClass: string;
     innerBoxClass: string;
     cardClass: string;
-    // 機能系の関数とステート
     speak: (text: string) => void;
     startPronunciationAnalysis: () => void;
     isRecording: boolean;
@@ -55,9 +52,8 @@ export default function StudyContainer({
     startPronunciationAnalysis,
     isRecording,
     pronunciationScore,
-    handleResponse
-}: StudyContainerProps) {
-    return (
+    handleResponse,
+}: StudyContainerProps) {    return (
         <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 max-w-lg w-full mx-auto relative z-10">
 
             {/* カテゴリフィルター & 検索 */}

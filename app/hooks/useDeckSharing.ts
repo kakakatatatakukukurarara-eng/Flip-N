@@ -1,3 +1,5 @@
+import type { SupabaseClientMinimal } from '../types';
+
 type DeckCard = {
   id: number;
   front: string;
@@ -15,16 +17,12 @@ type DeckSharingUser = {
   id: string;
 };
 
-type DeckSharingSupabaseClient = {
-  from: (table: string) => any;
-};
-
 export function useDeckSharing<T extends DeckCard>(
   user: DeckSharingUser | null,
-  supabase: DeckSharingSupabaseClient,
+  supabase: SupabaseClientMinimal,
   cards: T[],
   setCards: React.Dispatch<React.SetStateAction<T[]>>,
-  showToast: (message: string, type?: 'success' | 'error' | 'info') => void
+  showToast: (message: string, type?: 'success' | 'error' | 'info') => void,
 ) {
   const handleShareDeck = async (deckTitle: string, deckDescription: string) => {
     if (!user) {
@@ -110,7 +108,7 @@ export function useDeckSharing<T extends DeckCard>(
       if (cardsError || !sharedCards) return;
 
       const confirmImport = window.confirm(
-        `共有デッキ「${deck.title}」(${sharedCards.length}枚のカード) が見つかりました。\nあなたの単語帳にインポートしますか？`
+        `共有デッキ「${deck.title}」(${sharedCards.length}枚のカード) が見つかりました。\nあなたの単語帳にインポートしますか？`,
       );
 
       if (confirmImport) {
@@ -126,7 +124,7 @@ export function useDeckSharing<T extends DeckCard>(
           repetition: 0,
           is_public: false,
           next_review_at: new Date().toISOString(),
-        } as T));
+        }) as T);
 
         setCards((prev) => [...prev, ...importedCards]);
         showToast(`${deck.title} のインポートが完了しました！`, 'success');

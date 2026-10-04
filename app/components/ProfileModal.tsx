@@ -1,9 +1,10 @@
 // src/components/ProfileModal.tsx
 import React from 'react';
+import type { User } from '../types';
 
 interface ProfileModalProps {
   isDark: boolean;
-  user: any;
+  user?: User | null;
   onClose: () => void;
   editDisplayName: string;
   setEditDisplayName: (val: string) => void;
@@ -13,12 +14,11 @@ interface ProfileModalProps {
   setUserHobby: (val: string) => void;
   avatarUrl: string;
   setAvatarUrl: (val: string) => void;
-  onSave: () => Promise<void>;
+  onSave: () => Promise<void> | void;
 }
 
 export default function ProfileModal({
   isDark,
-  user,
   onClose,
   editDisplayName,
   setEditDisplayName,
@@ -29,8 +29,7 @@ export default function ProfileModal({
   avatarUrl,
   setAvatarUrl,
   onSave,
-}: ProfileModalProps) {
-  return (
+}: ProfileModalProps) {  return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className={`w-full max-w-md max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl shadow-2xl p-4 sm:p-6 ${isDark ? 'bg-slate-900 border border-slate-800' : 'bg-white'}`}>
         <h2 className={`text-xl font-bold mb-6 font-mono ${isDark ? 'text-white' : 'text-slate-800'}`}>USER PROFILE</h2>

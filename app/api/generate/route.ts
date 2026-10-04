@@ -4,6 +4,34 @@ import { GoogleGenAI } from '@google/genai';
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
 
+async function generateWithRetry(prompt: string, retries = 2): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await ai!.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: prompt,
+      });
+
+      return typeof response.text === 'string' ? response.text : '[]';
+    } catch (error) {
+      lastError = error;
+
+      const message = error instanceof Error ? error.message : String(error);
+      const isTransient = /429|503|temporar|rate limit|overload|unavailable|timeout|too many requests/i.test(message);
+
+      if (!isTransient || attempt === retries) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+
+  throw lastError ?? new Error('AI generation failed');
+}
+
 export async function POST(req: Request) {
   try {
     if (!geminiApiKey || !ai) {
@@ -43,13 +71,7 @@ export async function POST(req: Request) {
       ]
     `;
 
-    // Gemini API を呼び出す
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: aiPrompt,
-    });
-
-    const responseText = typeof response.text === 'string' ? response.text : '[]';
+    const responseText = await generateWithRetry(aiPrompt);
 
     // AIから返ってきたテキストをJSONオブジェクト（配列）にパース
     let flashcards: unknown;
@@ -70,9 +92,14 @@ export async function POST(req: Request) {
   } catch (error) {
     console.error('AI単語帳生成エラー:', error);
     const rawMessage = error instanceof Error ? error.message : '単語帳の自動生成に失敗しました';
+    const isTransient = /429|503|temporar|rate limit|overload|unavailable|timeout|too many requests/i.test(rawMessage);
+
     const message = /API key|GEMINI_API_KEY|invalid|unauthorized|forbidden/i.test(rawMessage)
       ? `Gemini API エラー: ${rawMessage}`
-      : rawMessage;
-    return NextResponse.json({ error: message }, { status: 500 });
+      : isTransient
+        ? 'Gemini APIが一時的に混雑しています。少し待ってからもう一度お試しください。'
+        : rawMessage;
+
+    return NextResponse.json({ error: message }, { status: isTransient ? 503 : 500 });
   }
 }

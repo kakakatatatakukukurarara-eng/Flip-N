@@ -1,24 +1,15 @@
 // src/hooks/useProfile.ts
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { User, SupabaseClientMinimal, ShowToastFn } from '../types';
 
 export function useProfile(user: User | null, supabase: SupabaseClientMinimal, showToast: ShowToastFn) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  
-  // モーダル内で管理するプロフィール関連のState
+
   const [editDisplayName, setEditDisplayName] = useState('');
   const [dailyGoal, setDailyGoal] = useState(20);
   const [userHobby, setUserHobby] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
 
-  // ユーザーがログイン、または情報が更新されたら初期値を同期
-  useEffect(() => {
-    if (user) {
-      setEditDisplayName(user.displayName || '');
-    }
-  }, [user]);
-
-  // 【機能強化】もし初回ロード時にSupabaseのprofilesテーブルからデータを引っ張りたい場合はここで行えます
   useEffect(() => {
     async function fetchProfile() {
       if (!user?.id) return;
@@ -31,20 +22,27 @@ export function useProfile(user: User | null, supabase: SupabaseClientMinimal, s
 
         if (error) throw error;
         if (data) {
-          if (data.display_name) setEditDisplayName(data.display_name);
-          if (data.user_hobby) setUserHobby(data.user_hobby);
-          if (data.daily_goal) setDailyGoal(data.daily_goal);
-          if (data.avatar_url) setAvatarUrl(data.avatar_url);
+          const profile = data as {
+            display_name?: string;
+            user_hobby?: string;
+            daily_goal?: number;
+            avatar_url?: string;
+          };
+
+          if (profile.display_name) setEditDisplayName(profile.display_name);
+          if (profile.user_hobby) setUserHobby(profile.user_hobby);
+          if (profile.daily_goal) setDailyGoal(profile.daily_goal);
+          if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
         }
       } catch (err) {
         if (process.env.NODE_ENV === 'development') console.error('プロフィール情報の取得に失敗:', err);
         showToast('プロフィールの取得に失敗しました。', 'error');
       }
     }
-    fetchProfile();
-  }, [user?.id, supabase]);
 
-  // プロフィール保存処理
+    void fetchProfile();
+  }, [user?.id, showToast, supabase]);
+
   const handleSaveProfile = async (setUser: (u: User | null) => void) => {
     if (!user) return;
     try {
@@ -60,7 +58,6 @@ export function useProfile(user: User | null, supabase: SupabaseClientMinimal, s
 
       if (error) throw error;
 
-      // 親コンポーネント（page.tsx）のuserステートも更新
       setUser({ ...user, displayName: editDisplayName });
       showToast('プロフィールをアカウントに保存しました！', 'success');
       setIsProfileOpen(false);
