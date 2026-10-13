@@ -1,5 +1,5 @@
 import React from 'react';
-import type { Card, CardLike, User } from '../types';
+import type { Card, User } from '../types';
 
 type PresetDeckCard = Pick<Card, 'front' | 'back' | 'example' | 'category'> & { id?: number };
 type PresetDeck = {
@@ -37,6 +37,7 @@ interface HomeTabContentProps {
   PRESET_DECKS: PresetDeck[];
   setCards: React.Dispatch<React.SetStateAction<Card[]>>;
   setCurrentIndex: (index: number) => void;
+  showToast?: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
 
 export default function HomeTabContent({
@@ -61,74 +62,142 @@ export default function HomeTabContent({
   PRESET_DECKS,
   setCards,
   setCurrentIndex,
+  showToast,
 }: HomeTabContentProps) {
+  const progressPercent = Number.isFinite(dailyGoal) && dailyGoal > 0
+    ? Math.min(100, Math.max(0, Math.round((dailyMissions.studyCount / dailyGoal) * 100)))
+    : 0;
+
+  const dueCardsCount = cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0).length;
+  const weakCardsCount = cards.filter((card) => (card.interval ?? 1) >= 3 || (card.repetition ?? 0) <= 1).length;
+  const routineTasks = [
+    { label: '復習を1問進める', done: dailyMissions.studyCount >= 1 },
+    { label: 'クイズに1回挑戦', done: dailyMissions.testCompleted },
+    { label: '音声チェックを1回試す', done: dailyMissions.speakCompleted },
+  ];
+  const routineProgress = Math.round((routineTasks.filter((task) => task.done).length / routineTasks.length) * 100);
+
   return (
-    <main className="flex-grow flex flex-col p-4 sm:p-6 max-w-4xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <section className="py-4">
-        <h2 className="text-2xl font-black tracking-tight">
+    <main className="flex-grow min-w-0 flex flex-col p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <section className="py-2">
+        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 text-[9px] font-mono font-bold tracking-[0.24em] text-blue-500 uppercase">Premium study flow</div>
+        <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-[-0.06em] leading-none bg-gradient-to-r from-slate-900 via-slate-700 to-blue-600 bg-clip-text text-transparent dark:from-slate-100 dark:via-slate-200 dark:to-blue-400">
           おかえりなさい、{user?.displayName || 'ゲスト'}さん
         </h2>
-        <p className="text-[11px] text-slate-400 font-medium mt-1">
+        <p className="text-[11px] sm:text-[12px] text-slate-400 font-medium mt-2">
           現在のマイブーム: <span className="text-purple-400 font-bold">{userHobby || '未設定'}</span>
         </p>
       </section>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
+        <div className={`p-5 rounded-[28px] border flex flex-col justify-between h-36 bg-gradient-to-br from-orange-50 via-white to-amber-50/80 ${subContainerClass}`}>
           <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
             <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> STREAK RECORD
           </div>
           <div className="flex items-end gap-1.5 my-2">
-            <span className="text-4xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">{streak}</span>
+            <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">{streak}</span>
             <span className="text-xs font-bold text-slate-400 pb-1">Days Continuous</span>
           </div>
           <p className="text-[9px] font-mono text-slate-500">Keep up the great rhythm!</p>
         </div>
 
-        <div className={`p-5 rounded-2xl border shadow-sm flex flex-col justify-between h-32 ${subContainerClass}`}>
+        <div className={`p-5 rounded-[28px] border flex flex-col justify-between h-36 bg-gradient-to-br from-emerald-50 via-white to-teal-50/80 ${subContainerClass}`}>
           <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY&apos;S GOAL PROGRESS
           </div>
           <div className="flex justify-between items-end my-1">
-            <span className="text-4xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
-              {Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%
+            <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
+              {progressPercent}%
             </span>
             <span className="text-[10px] font-mono text-slate-500 font-bold">
               {dailyMissions.studyCount} / {dailyGoal} WORDS
             </span>
           </div>
-          <div className={`w-full h-1.5 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
+          <div className={`w-full h-2 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
             <div
               className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all duration-500"
-              style={{ width: `${Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100))}%` }}
+              style={{ width: `${progressPercent}%` }}
             />
           </div>
         </div>
       </div>
 
-      <div className="pt-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+      <div className={`p-5 rounded-[28px] border ${subContainerClass}`}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <p className="text-[9px] font-mono font-bold tracking-[0.24em] uppercase text-blue-500">Daily mini habit</p>
+            <h3 className="mt-2 text-xl font-black tracking-tight">今日のルーティン</h3>
+          </div>
+          <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-mono font-bold text-blue-600">
+            {routineProgress}%
+          </div>
+        </div>
+
+        <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-slate-200/70">
+          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500" style={{ width: `${routineProgress}%` }} />
+        </div>
+
+        <p className="mb-3 text-[10px] font-mono text-slate-500">
+          苦手カード優先: <span className="font-bold text-slate-700">{weakCardsCount} 枚</span> / 復習待ち: <span className="font-bold text-slate-700">{dueCardsCount} 枚</span>
+        </p>
+
+        <div className="space-y-2.5">
+          {routineTasks.map((task) => (
+            <button
+              key={task.label}
+              onClick={() => setActiveTab(task.label.includes('クイズ') ? 'test' : task.label.includes('音声') ? 'study' : 'study')}
+              className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left transition ${task.done ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500' : 'border-slate-200/80 bg-slate-50/60 text-slate-700'}`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{task.done ? '✅' : '⚡'}</span>
+                <span className="text-[11px] font-bold">{task.label}</span>
+              </div>
+              <span className="text-[10px] font-mono font-bold uppercase">{task.done ? 'Done' : 'Go'}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
         <button
           onClick={() => setActiveTab('study')}
-          className="p-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-mono font-bold text-xs tracking-wider shadow-md hover:opacity-95 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase"
+          className="min-h-[56px] p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-mono font-bold text-xs tracking-wider shadow-lg shadow-blue-500/20 hover:opacity-95 hover:-translate-y-0.5 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase"
         >
           <span>🚀 Start Daily Review</span>
         </button>
 
         <button
           onClick={() => setActiveTab('manage')}
-          className={`p-4 rounded-xl border font-mono font-bold text-xs tracking-wider hover:bg-slate-800/30 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
+          className={`min-h-[56px] p-4 rounded-2xl border font-mono font-bold text-xs tracking-wider hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
         >
           <span>✨ Create &amp; Generate Cards</span>
         </button>
       </div>
 
-      <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
+      {dueCardsCount > 0 && (
+        <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[9px] font-mono font-bold tracking-[0.2em] uppercase text-amber-400">Review needed</p>
+              <p className="mt-1 text-sm font-bold break-words">{cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0).length}枚のカードが復習待ちです</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('study')}
+              className="shrink-0 rounded-xl bg-amber-500 px-3 py-2 text-[10px] font-mono font-bold text-slate-950 transition hover:bg-amber-400 hover:-translate-y-0.5"
+            >
+              今すぐ開く
+            </button>
+          </div>
+        </div>
+      )}
+
+      <section className={`p-5 rounded-[28px] border bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-cyan-500/[0.04] ${subContainerClass}`}>
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-emerald-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> DAILY QUICK QUIZ
           </div>
           {quickQuizStatus !== 'idle' && (
-            <button onClick={generateQuickQuiz} className="text-[9px] font-mono font-bold text-blue-400 hover:underline">NEXT QUESTION →</button>
+            <button onClick={generateQuickQuiz} className="text-[9px] font-mono font-bold text-blue-400 hover:text-blue-300 hover:underline transition">NEXT QUESTION →</button>
           )}
         </div>
 
@@ -173,7 +242,7 @@ export default function HomeTabContent({
                         speak('Wrong answer');
                       }
                     }}
-                    className={`p-2.5 rounded-xl border text-[11px] font-medium text-left transition-all active:scale-[0.98] ${btnClass}`}
+                    className={`min-h-[52px] p-2.5 rounded-xl border text-[11px] font-medium text-left transition-all active:scale-[0.98] ${btnClass}`}
                   >
                     <div className="flex justify-between items-center">
                       <span className="truncate">{option}</span>
@@ -280,9 +349,9 @@ export default function HomeTabContent({
                     setActiveTab('study');
                     setCurrentIndex(0);
 
-                    window.alert(`「${deck.title}」を単語帳に追加しました！さっそく学習を始めましょう！`);
+                    showToast?.(`「${deck.title}」を単語帳に追加しました。さっそく学習を始めましょう！`, 'success');
                   }}
-                  className="w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 font-mono font-bold text-[11px] tracking-wide rounded-xl border border-slate-800 transition active:scale-[0.98]"
+                  className="min-h-[52px] w-full py-2 bg-slate-900 hover:bg-slate-850 text-slate-300 font-mono font-bold text-[11px] tracking-wide rounded-xl border border-slate-800 transition active:scale-[0.98]"
                 >
                   📥 このパックを追加してすぐ学習する
                 </button>

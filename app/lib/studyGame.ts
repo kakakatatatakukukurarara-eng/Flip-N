@@ -7,6 +7,37 @@ export interface StudyStats {
   };
 }
 
+export function getLocalDateString(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+export function getDateDifferenceInDays(fromDate: string, toDate: string) {
+  const parseDate = (value: string) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+
+    const [year, month, day] = value.split('-').map(Number);
+    const timestamp = Date.UTC(year, month - 1, day);
+    return new Date(timestamp).toISOString().slice(0, 10) === value ? timestamp : null;
+  };
+
+  const fromTimestamp = parseDate(fromDate);
+  const toTimestamp = parseDate(toDate);
+  if (fromTimestamp === null || toTimestamp === null) return Number.NaN;
+
+  return (toTimestamp - fromTimestamp) / 86400000;
+}
+
+export function calculateStudyStreak(streak: number, lastStudyDate: string, today: string) {
+  const daysSinceLastStudy = getDateDifferenceInDays(lastStudyDate, today);
+
+  if (daysSinceLastStudy === 0) return Math.max(streak, 1);
+  if (daysSinceLastStudy === 1) return streak + 1;
+  return 1;
+}
+
 export function createInitialDailyMissions() {
   return {
     studyCount: 0,

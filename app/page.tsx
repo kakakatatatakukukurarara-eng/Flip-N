@@ -16,7 +16,6 @@ import { useQuiz } from './hooks/useQuiz';
 import { useStudyProgress } from './hooks/useStudyProgress';
 import { useDeckSharing } from './hooks/useDeckSharing';
 import QuizContainer from './components/QuizContainer';
-import HomeContainer from './components/HomeContainer';
 import StudyContainer from './components/StudyContainer';
 import AppHeader from './components/AppHeader';
 import HomeTabContent from './components/HomeTabContent';
@@ -121,11 +120,17 @@ export default function UltimateStudyExperience() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('home');
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window === 'undefined') return 'dark';
+  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
     const savedTheme = window.localStorage.getItem('user_theme');
-    return savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
-  });
+    const resolvedTheme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : 'dark';
+    // Hydration-safe initial theme restore: sync once after the browser is ready.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setTheme(resolvedTheme);
+    setIsHydrated(true);
+  }, []);
 
   function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
     setToastMessage(message);
@@ -291,9 +296,6 @@ export default function UltimateStudyExperience() {
 
   const {
     streak,
-    setStreak,
-    lastStudyDate,
-    setLastStudyDate,
     dailyMissions,
     setDailyMissions,
     studyLogs,
@@ -302,7 +304,6 @@ export default function UltimateStudyExperience() {
     syncStreak,
     recordStudy,
     fetchStudyLogs,
-    handleStudyComplete,
   } = useStudyProgress(user, supabase, (message, type = 'info') => {
     setToastType(type);
     setToastMessage(message);
@@ -349,30 +350,6 @@ export default function UltimateStudyExperience() {
         setAudioSpeed(data.audio_speed || '1.0');
         setTestTimer(data.test_timer || 'none');
 
-        // 🌟 ストリークの自動判定ロジック
-        const savedStreak = data.streak_count || 0;
-        const savedLastDate = data.last_study_date || '';
-
-        if (savedLastDate) {
-          const today = new Date();
-          const lastDate = new Date(savedLastDate);
-
-          // 今日と最後に勉強した日の「日数の差」を計算
-          const diffTime = today.setHours(0, 0, 0, 0) - lastDate.setHours(0, 0, 0, 0);
-          const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-
-          if (diffDays > 1) {
-            // 2日以上あいていたらリセット
-            setStreak(0);
-            setLastStudyDate('');
-            await supabase.from('profiles').update({ streak_count: 0, last_study_date: null }).eq('id', user.id);
-          } else {
-            setStreak(savedStreak);
-            setLastStudyDate(savedLastDate);
-          }
-        } else {
-          setStreak(0);
-        }
       }
     };
 
@@ -796,7 +773,13 @@ export default function UltimateStudyExperience() {
       }
 
       await fetchMyDecks(user);
-      await fetchCards();
+      if (copyCards) {
+        await fetchCards();
+      } else {
+        setCurrentDeckId(targetDeckId);
+        setCurrentIndex(0);
+        setIsFlipped(false);
+      }
       showToast(copyCards ? `${cards.length}枚を別デッキへコピーしました。` : `${cards.length}枚を別デッキへ移動しました。`, 'success');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'デッキ操作に失敗しました。';
@@ -1004,19 +987,36 @@ export default function UltimateStudyExperience() {
   const toggleTheme = () => {
     const nextTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(nextTheme);
-    localStorage.setItem('user_theme', nextTheme);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('user_theme', nextTheme);
+    }
   };
 
   useEffect(() => {
   }, [cards]);
 
   const displayCards = useMemo(() => {
-    return cards.filter((card) => {
-      const matchesCategory = selectedCategory === 'All' || card.category === selectedCategory;
-      const matchesSearch = card.front.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        card.back.toLowerCase().includes(searchQuery.toLowerCase());
-      return matchesCategory && matchesSearch;
-    });
+    const now = Date.now();
+
+    return cards
+      .filter((card) => {
+        const matchesCategory = selectedCategory === 'All' || card.category === selectedCategory;
+        const matchesSearch = card.front.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          card.back.toLowerCase().includes(searchQuery.toLowerCase());
+        return matchesCategory && matchesSearch;
+      })
+      .sort((a, b) => {
+        const aDue = !a.next_review_at || new Date(a.next_review_at).getTime() <= now ? 0 : 1;
+        const bDue = !b.next_review_at || new Date(b.next_review_at).getTime() <= now ? 0 : 1;
+
+        if (aDue !== bDue) return aDue - bDue;
+
+        const aWeakness = (a.interval || 1) + (a.repetition || 0) * 2;
+        const bWeakness = (b.interval || 1) + (b.repetition || 0) * 2;
+
+        if (aWeakness !== bWeakness) return aWeakness - bWeakness;
+        return (a.front || '').localeCompare(b.front || '');
+      });
   }, [cards, selectedCategory, searchQuery]);
 
   useEffect(() => {
@@ -1238,18 +1238,18 @@ export default function UltimateStudyExperience() {
 
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800';
-  const headerClass = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200';
-  const cardClass = isDark ? 'bg-slate-900 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-800 shadow-sm';
+  const headerClass = isDark ? 'bg-slate-900/80 border-slate-800/80 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.95)] backdrop-blur-xl' : 'bg-white/80 border-slate-200/80 shadow-[0_18px_50px_-26px_rgba(15,23,42,0.22)] backdrop-blur-xl';
+  const cardClass = isDark ? 'bg-slate-900/85 border-slate-700/80 text-slate-100 shadow-[0_24px_60px_-28px_rgba(15,23,42,1)]' : 'bg-white/95 border-slate-200 text-slate-800 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.22)]';
   const inputBgClass = isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-200';
-  const subContainerClass = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-xs';
-  const innerBoxClass = isDark ? 'bg-slate-950/40 border-slate-800' : 'bg-slate-50 border-slate-100';
+  const subContainerClass = isDark ? 'bg-slate-900/85 border-slate-700/80 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.96)] rounded-[28px] ring-1 ring-slate-800/60' : 'bg-white/95 border-slate-200/90 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.2)] rounded-[28px] ring-1 ring-slate-200/80';
+  const innerBoxClass = isDark ? 'bg-slate-950/60 border-slate-800 rounded-2xl ring-1 ring-slate-800/60' : 'bg-slate-50/90 border-slate-200 rounded-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.7)]';
 
   const mainTabMasteredCards = cards.filter((c: Card) => (c.interval || 0) > 1).length;
   const mastery = cards.length > 0 ? Math.round((mainTabMasteredCards / cards.length) * 100) : 0;
 
-  if (loading) {
+  if (loading || !isHydrated) {
     return (
-      <div className={`flex items-center justify-center min-h-screen text-xs font-bold tracking-widest ${isDark ? 'bg-slate-950 text-slate-600' : 'bg-slate-50 text-slate-400'}`}>
+      <div className="flex items-center justify-center min-h-screen text-xs font-bold tracking-widest bg-slate-950 text-slate-600">
         LOADING...
       </div>
     );
@@ -1329,6 +1329,7 @@ export default function UltimateStudyExperience() {
           PRESET_DECKS={PRESET_DECKS}
           setCards={setCards}
           setCurrentIndex={setCurrentIndex}
+          showToast={showToast}
         />
       )}
       {activeTab === 'study' && (

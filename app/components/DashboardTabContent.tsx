@@ -33,6 +33,8 @@ export default function DashboardTabContent({
   mainTabMasteredCards,
   deckProgress,
 }: DashboardTabContentProps) {
+  const dueCards = cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0);
+  const dailyProgressPercent = Math.min(100, Math.round((dailyMissions.studyCount / 10) * 100));
   const weeklyActivity = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
@@ -46,36 +48,49 @@ export default function DashboardTabContent({
   const weeklyMax = Math.max(...weeklyActivity.map((item) => item.count), 1);
 
   return (
-    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex-1 min-w-0 max-w-5xl mx-auto w-full px-4 sm:px-6 py-8 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <p className="text-[10px] font-mono font-bold tracking-[0.2em] text-blue-500 uppercase">Learning analytics</p>
-          <h2 className="text-2xl font-black tracking-tight mt-1">学習の進み具合</h2>
+          <h2 className="text-3xl sm:text-4xl font-black tracking-[-0.06em] mt-1">学習の進み具合</h2>
           <p className="text-xs text-slate-400 mt-1">デッキごとの習得状況と、最近の学習活動を確認できます。</p>
         </div>
         <button
           onClick={() => setShowShareModal(true)}
-          className="sm:w-auto px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-400 hover:to-purple-500 text-white font-mono font-bold text-xs rounded-xl shadow-lg transition flex items-center justify-center gap-2 uppercase tracking-wider"
+          className="sm:w-auto px-4 py-2.5 bg-gradient-to-r from-pink-500 via-violet-500 to-purple-600 hover:from-pink-400 hover:via-violet-400 hover:to-purple-500 text-white font-mono font-bold text-xs rounded-2xl shadow-[0_18px_30px_-18px_rgba(168,85,247,0.8)] transition flex items-center justify-center gap-2 uppercase tracking-wider"
         >
           📸 実績をシェア
         </button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className={`min-w-0 p-4 rounded-2xl border text-center ${subContainerClass}`}>
+        <div className={`min-w-0 p-5 rounded-3xl border text-center shadow-sm transition hover:-translate-y-0.5 ${subContainerClass}`}>
           <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Total Deck Size</span>
-          <span className="text-xl font-black tracking-tight">{cards.length}</span>
+          <span className="text-2xl font-black tracking-tight">{cards.length}</span>
           <span className="text-[8px] font-mono text-slate-400 block mt-0.5">CARDS INSTALLED</span>
         </div>
-        <div className={`min-w-0 p-4 rounded-2xl border text-center ${subContainerClass}`}>
+        <div className={`min-w-0 p-5 rounded-3xl border text-center shadow-sm transition hover:-translate-y-0.5 ${subContainerClass}`}>
           <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Mastery Rate</span>
-          <span className="text-xl font-black tracking-tight text-blue-400">{mastery}%</span>
+          <span className="text-2xl font-black tracking-tight text-blue-400">{mastery}%</span>
           <span className="text-[8px] font-mono text-slate-400 block mt-0.5">{mainTabMasteredCards} CARDS MASTERED</span>
         </div>
-        <div className={`min-w-0 p-4 rounded-2xl border text-center ${subContainerClass}`}>
+        <div className={`min-w-0 p-5 rounded-3xl border text-center shadow-sm transition hover:-translate-y-0.5 ${subContainerClass}`}>
           <span className="text-[9px] font-mono font-bold text-slate-500 tracking-wider block uppercase mb-1">Current Streak</span>
-          <span className="text-xl font-black tracking-tight text-orange-500">{streak} 🔥</span>
+          <span className="text-2xl font-black tracking-tight text-orange-500">{streak} 🔥</span>
           <span className="text-[8px] font-mono text-slate-400 block mt-0.5">DAYS LEARNING IN A ROW</span>
+        </div>
+      </div>
+
+      <div className={`rounded-2xl border p-4 shadow-sm ${subContainerClass}`}>
+        <div className="flex min-w-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[9px] font-mono font-bold tracking-[0.2em] uppercase text-amber-500">Focus today</p>
+            <p className="mt-1 text-sm font-bold break-words">{dueCards.length > 0 ? `${dueCards.length}枚が今すぐ見直し候補です` : '復習候補はありません。順調です。'} </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2 text-xs font-mono">
+            <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-emerald-400">{dailyProgressPercent}%</span>
+            <span className="text-slate-500">今日の進捗</span>
+          </div>
         </div>
       </div>
 
@@ -88,9 +103,9 @@ export default function DashboardTabContent({
             const progress = deck.total > 0 ? Math.round((deck.mastered / deck.total) * 100) : 0;
             return (
               <div key={deck.deckId || 'unassigned'}>
-                <div className="flex justify-between items-center text-xs font-bold mb-1.5">
-                  <span className="truncate">{deck.title}</span>
-                  <span className="text-slate-400 font-mono ml-3 shrink-0">{progress}%</span>
+                <div className="flex min-w-0 items-center justify-between gap-3 text-xs font-bold mb-1.5">
+                  <span className="min-w-0 truncate">{deck.title}</span>
+                  <span className="shrink-0 text-slate-400 font-mono">{progress}%</span>
                 </div>
                 <div className="h-2 rounded-full bg-slate-800 overflow-hidden">
                   <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />

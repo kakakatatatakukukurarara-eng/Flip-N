@@ -1,6 +1,6 @@
 // src/components/HomeContainer.tsx
 import React from 'react';
-import type { Card, CardLike, User } from '../types';
+import type { Card, User } from '../types';
 
 type PresetDeck = {
   id: string;
@@ -27,9 +27,6 @@ interface HomeContainerProps {
   setQuickQuizStatus: (status: 'idle' | 'correct' | 'wrong') => void;
   speak?: (text: string) => void;
   setSelectedCategory: (category: string) => void;
-  PRESET_DECKS: PresetDeck[];
-  setCards: React.Dispatch<React.SetStateAction<Card[]>>;
-  setCurrentIndex: (index: number) => void;
   isDark: boolean;
 }
 
@@ -50,17 +47,16 @@ export default function HomeContainer({
   setQuickQuizStatus,
   speak,
   setSelectedCategory,
-  PRESET_DECKS,
-  setCards,
-  setCurrentIndex,
   isDark,
 }: HomeContainerProps) {
   const subContainerClass = isDark ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-100 shadow-xl shadow-slate-200/30 rounded-3xl';
   const innerBoxClass = isDark ? 'bg-slate-900/60 border-slate-800 text-slate-200' : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50/50 shadow-xs';
-  const progressPercent = Math.min(100, Math.round((dailyMissions.studyCount / dailyGoal) * 100));
+  const progressPercent = Number.isFinite(dailyGoal) && dailyGoal > 0
+    ? Math.min(100, Math.max(0, Math.round((dailyMissions.studyCount / dailyGoal) * 100)))
+    : 0;
 
   return (
-    <main className="flex-grow flex flex-col p-4 sm:p-6 max-w-4xl w-full mx-auto relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <main className="flex-grow min-w-0 flex flex-col p-4 sm:p-6 max-w-4xl w-full mx-auto relative z-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="pt-2 pb-4 border-b border-slate-200/50 dark:border-slate-800">
         <h2 className="text-[22px] font-black tracking-tight text-slate-800 dark:text-slate-100">
           Welcome back, {user?.displayName || 'Guest'}.

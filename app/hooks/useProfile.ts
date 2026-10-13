@@ -2,13 +2,22 @@
 import { useEffect, useState } from 'react';
 import type { User, SupabaseClientMinimal, ShowToastFn } from '../types';
 
+const normalizeDailyGoal = (value: number) => {
+  if (!Number.isFinite(value)) return 20;
+  return Math.min(200, Math.max(5, Math.round(value)));
+};
+
 export function useProfile(user: User | null, supabase: SupabaseClientMinimal, showToast: ShowToastFn) {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const [editDisplayName, setEditDisplayName] = useState('');
-  const [dailyGoal, setDailyGoal] = useState(20);
+  const [dailyGoal, setDailyGoalState] = useState(20);
   const [userHobby, setUserHobby] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
+
+  const setDailyGoal = (value: number) => {
+    setDailyGoalState(normalizeDailyGoal(value));
+  };
 
   useEffect(() => {
     async function fetchProfile() {
@@ -31,7 +40,7 @@ export function useProfile(user: User | null, supabase: SupabaseClientMinimal, s
 
           if (profile.display_name) setEditDisplayName(profile.display_name);
           if (profile.user_hobby) setUserHobby(profile.user_hobby);
-          if (profile.daily_goal) setDailyGoal(profile.daily_goal);
+          if (profile.daily_goal !== undefined && profile.daily_goal !== null) setDailyGoal(profile.daily_goal);
           if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
         }
       } catch (err) {
@@ -51,7 +60,7 @@ export function useProfile(user: User | null, supabase: SupabaseClientMinimal, s
         .update({
           display_name: editDisplayName,
           user_hobby: userHobby,
-          daily_goal: dailyGoal,
+          daily_goal: normalizeDailyGoal(dailyGoal),
           avatar_url: avatarUrl,
         })
         .eq('id', user.id);

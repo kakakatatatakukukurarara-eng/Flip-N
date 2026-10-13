@@ -129,10 +129,10 @@ export default function ManageTabContent({
   onExplainCard,
 }: ManageTabContentProps) {
   return (
-    <main className="flex-grow p-4 sm:p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
-      <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
-        <div className="flex flex-col lg:flex-row lg:items-end gap-3">
-          <label className="flex-1 text-[10px] font-mono font-bold text-slate-500 tracking-wider">
+    <main className="flex-grow min-w-0 p-4 sm:p-6 max-w-4xl w-full mx-auto space-y-6 relative z-10">
+      <section className={`p-5 rounded-2xl border shadow-sm ${subContainerClass}`}>
+        <div className="flex min-w-0 flex-col lg:flex-row lg:items-end gap-3">
+          <label className="min-w-0 w-full flex-1 text-[10px] font-mono font-bold text-slate-500 tracking-wider">
             CURRENT DECK
             <StyledSelect
               ariaLabel="現在のデッキ"
@@ -143,19 +143,19 @@ export default function ManageTabContent({
               className="mt-1 w-full"
             />
           </label>
-          <form onSubmit={handleCreateDeck} className="flex min-w-0 flex-col sm:flex-row gap-2 flex-1">
-            <input required value={newDeckTitle} onChange={(event) => setNewDeckTitle(event.target.value)} placeholder="新しい単語帳の名前" className={`flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
-            <input value={newDeckDesc} onChange={(event) => setNewDeckDesc(event.target.value)} placeholder="説明（任意）" className={`flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
-            <label className="flex items-center gap-1.5 px-2 text-[10px] text-slate-400 whitespace-nowrap">
+          <form onSubmit={handleCreateDeck} className="flex min-w-0 w-full flex-1 flex-col sm:flex-row gap-2">
+            <input required value={newDeckTitle} onChange={(event) => setNewDeckTitle(event.target.value)} placeholder="新しい単語帳の名前" className={`min-w-0 flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
+            <input value={newDeckDesc} onChange={(event) => setNewDeckDesc(event.target.value)} placeholder="説明（任意）" className={`min-w-0 flex-1 px-3 py-2 rounded-xl border text-xs ${inputBgClass}`} />
+            <label className="flex shrink-0 items-center gap-1.5 px-2 text-[10px] text-slate-400 whitespace-nowrap">
               <input type="checkbox" checked={isDeckPublic} onChange={(event) => setIsDeckPublic(event.target.checked)} /> 公開
             </label>
-            <button type="submit" className="px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold whitespace-nowrap">デッキ作成</button>
+            <button type="submit" className="shrink-0 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-bold whitespace-nowrap transition hover:bg-blue-500 hover:-translate-y-0.5">デッキ作成</button>
           </form>
         </div>
         <p className="mt-2 text-[10px] text-slate-500">現在のデッキ: {decks.find((deck) => deck.id === currentDeckId)?.title || '未分類のカード'} / {cards.length}枚</p>
         {decks.length > 0 && cards.length > 0 && (
-          <div className="mt-4 flex flex-col sm:flex-row gap-2 border-t border-slate-800/60 pt-4">
-            <div className="relative flex-1">
+          <div className="mt-4 flex min-w-0 flex-col sm:flex-row gap-2 border-t border-slate-800/60 pt-4">
+            <div className="relative min-w-0 flex-1">
               <StyledSelect
                 ariaLabel="操作先のデッキ"
                 value={targetDeckId || ''}
@@ -181,9 +181,9 @@ export default function ManageTabContent({
         </button>
       </div>
 
-      <div className={`p-5 rounded-2xl border ${subContainerClass}`}>
+      <div className={`p-5 rounded-2xl border shadow-sm transition hover:-translate-y-0.5 ${subContainerClass}`}>
         <h4 className="text-xs font-mono font-bold tracking-widest text-blue-500 uppercase mb-1">✨ AI Flashcard Generator</h4>
-        <p className="text-[11px] text-slate-400 mb-3">文章や用語リストを入れるだけで、AIが言語と分野を自動判定して単語帳カードを生成します。</p>
+        <p className="text-[11px] text-slate-400 mb-3 leading-relaxed">文章や用語リストを入れるだけで、AIが言語と分野を自動判定して単語帳カードを生成します。</p>
         <div className="flex flex-col gap-2">
           <textarea
             placeholder="ここに文章や用語リストを入力... (例: 光合成、鎌倉幕府、photosynthesis)"
@@ -218,7 +218,7 @@ export default function ManageTabContent({
           <button
             onClick={handleGenerateAI}
             disabled={isGenerating}
-            className="w-full py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 text-white font-mono font-bold text-xs tracking-wider rounded-xl transition uppercase shadow-md"
+            className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 hover:-translate-y-0.5 disabled:bg-slate-700 text-white font-mono font-bold text-xs tracking-wider rounded-xl transition uppercase shadow-md"
           >
             {isGenerating ? 'AI 解析中...' : 'AIで一発自動生成する'}
           </button>
@@ -226,9 +226,9 @@ export default function ManageTabContent({
 
         {aiPreviewCards.length > 0 && (
           <div className="mt-5 pt-4 border-t border-dashed border-slate-800 space-y-3">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-              <h5 className="text-[11px] font-mono font-bold text-yellow-500 tracking-wider uppercase">✨ AI Generation Preview ({aiPreviewCards.length}枚)</h5>
-              <button onClick={handleConfirmAndSaveAI} className="px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white font-mono font-bold text-[10px] tracking-wide rounded-lg transition shadow-xs">
+            <div className="flex min-w-0 flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+              <h5 className="min-w-0 text-[11px] font-mono font-bold text-yellow-500 tracking-wider uppercase">✨ AI Generation Preview ({aiPreviewCards.length}枚)</h5>
+              <button onClick={handleConfirmAndSaveAI} className="shrink-0 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white font-mono font-bold text-[10px] tracking-wide rounded-lg transition shadow-xs">
                 この内容で確定・保存する
               </button>
             </div>
@@ -331,12 +331,12 @@ export default function ManageTabContent({
           <h4 className="text-xs font-mono font-bold tracking-widest text-slate-400 uppercase px-1">Deck Cards ({cards.length})</h4>
           <div className="space-y-2 max-h-[500px] overflow-y-auto pr-1">
             {cards.map((card) => (
-              <div key={card.id} className={`p-4 rounded-2xl border transition ${cardClass}`}>
+              <div key={card.id} className={`min-w-0 p-4 rounded-2xl border transition ${cardClass}`}>
                 {editingCardId === card.id ? (
                   <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className={`px-2 py-1.5 rounded-lg text-xs font-mono border ${inputBgClass}`} />
-                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className={`px-2 py-1.5 rounded-lg text-xs border ${inputBgClass}`} />
+                    <div className="grid min-w-0 grid-cols-2 gap-2">
+                      <input type="text" value={editFront} onChange={(e) => setEditFront(e.target.value)} className={`min-w-0 px-2 py-1.5 rounded-lg text-xs font-mono border ${inputBgClass}`} />
+                      <input type="text" value={editBack} onChange={(e) => setEditBack(e.target.value)} className={`min-w-0 px-2 py-1.5 rounded-lg text-xs border ${inputBgClass}`} />
                     </div>
                     <input type="text" placeholder="Example sentence" value={editExample} onChange={(e) => setEditExample(e.target.value)} className={`w-full px-2 py-1.5 rounded-lg text-xs border ${inputBgClass}`} />
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
@@ -354,29 +354,29 @@ export default function ManageTabContent({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex justify-between items-start gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex min-w-0 justify-between items-start gap-4">
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <div className="flex min-w-0 items-center gap-2 flex-wrap">
                         <button
                           onClick={() => toggleCardPublic(card.id, card.is_public)}
-                          className={`px-2 py-1 rounded text-xs ${card.is_public ? 'bg-green-500 text-white' : 'bg-slate-600 text-slate-300'}`}
+                          className={`shrink-0 px-2 py-1 rounded text-xs ${card.is_public ? 'bg-green-500 text-white' : 'bg-slate-600 text-slate-300'}`}
                         >
                           {card.is_public ? '🌐 公開中' : '🔒 非公開'}
                         </button>
-                        <span className="text-xs font-black tracking-tight">{card.front}</span>
+                        <span className="min-w-0 break-words text-xs font-black tracking-tight">{card.front}</span>
                         <span className="text-slate-500 text-[10px]">|</span>
-                        <span className="text-xs text-blue-400 font-medium">{card.back}</span>
-                        <span className="text-[8px] font-mono uppercase tracking-wider text-slate-500 px-1.5 py-0.5 bg-slate-950/40 rounded border border-slate-850">{card.category || 'General'}</span>
+                        <span className="min-w-0 break-words text-xs text-blue-400 font-medium">{card.back}</span>
+                        <span className="shrink-0 text-[8px] font-mono uppercase tracking-wider text-slate-500 px-1.5 py-0.5 bg-slate-950/40 rounded border border-slate-850">{card.category || 'General'}</span>
                         {card.is_public && (
-                          <span className="text-[8px] font-mono text-green-500 font-bold bg-green-500/5 border border-green-500/20 px-1 py-0.5 rounded">PUBLIC</span>
+                          <span className="shrink-0 text-[8px] font-mono text-green-500 font-bold bg-green-500/5 border border-green-500/20 px-1 py-0.5 rounded">PUBLIC</span>
                         )}
                       </div>
-                      {card.example && <p className="text-[11px] text-slate-400 italic font-sans">{card.example}</p>}
+                      {card.example && <p className="break-words text-[11px] text-slate-400 italic font-sans">{card.example}</p>}
                       <div className="text-[8px] font-mono text-slate-500 pt-1">
                         INTERVAL: {card.interval || 1}d • EF: {card.efactor?.toFixed(2) || '2.50'} • REPETITION: {card.repetition || 0}
                       </div>
                     </div>
-                    <div className="flex gap-1">
+                    <div className="flex shrink-0 gap-1">
                       <button onClick={() => onExplainCard(card)} title="AIで深掘り" className="p-1.5 rounded-lg border border-blue-500/30 hover:bg-blue-500/10 text-blue-400 transition">
                         <span className="text-[11px] font-bold">AI</span>
                       </button>

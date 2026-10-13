@@ -4,6 +4,31 @@ import { GoogleGenAI } from '@google/genai';
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 
+async function generateExplanationWithRetry(prompt: string, retries = 2): Promise<string> {
+  let lastError: unknown;
+
+  for (let attempt = 0; attempt <= retries; attempt += 1) {
+    try {
+      const response = await ai!.models.generateContent({ model: 'gemini-3.6-flash', contents: prompt });
+      return typeof response.text === 'string'
+        ? response.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+        : '';
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      const isTransient = /429|503|temporar|rate limit|overload|unavailable|timeout|too many requests/i.test(message);
+
+      if (!isTransient || attempt === retries) {
+        throw error;
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
+    }
+  }
+
+  throw lastError ?? new Error('AI explanation failed');
+}
+
 interface Explanation {
   nuance: string;
   usage: string;
@@ -50,10 +75,7 @@ export async function POST(request: Request) {
   "quizAnswer": "クイズの答え"
 }`;
 
-    const response = await ai.models.generateContent({ model: 'gemini-3.6-flash', contents: prompt });
-    const text = typeof response.text === 'string'
-      ? response.text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
-      : '';
+    const text = await generateExplanationWithRetry(prompt);
     let explanation: unknown;
     try {
       explanation = JSON.parse(text);
@@ -82,8 +104,13 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error('AI深掘りエラー:', error);
     const message = error instanceof Error ? error.message : '';
+    const isTransient = /429|503|temporar|rate limit|overload|unavailable|timeout|too many requests/i.test(message);
+
     if (/API key|GEMINI_API_KEY|invalid|unauthorized|forbidden/i.test(message)) {
       return NextResponse.json({ error: `Gemini APIエラー: ${message}` }, { status: 502 });
+    }
+    if (isTransient) {
+      return NextResponse.json({ error: 'Gemini APIが一時的に混雑しています。少し待ってからもう一度お試しください。' }, { status: 503 });
     }
     return NextResponse.json({ error: `AI深掘りに失敗しました。${message || '時間を置いて再試行してください。'}` }, { status: 500 });
   }

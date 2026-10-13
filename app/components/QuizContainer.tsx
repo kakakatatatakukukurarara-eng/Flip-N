@@ -79,21 +79,21 @@ export default function QuizContainer({
     }
 
     return (
-        <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 max-w-sm w-full mx-auto relative z-10 space-y-6">
+        <main className="flex-grow flex flex-col items-center justify-center p-4 sm:p-6 max-w-xl w-full mx-auto relative z-10 space-y-6">
 
             {/* 🌟 モードセレクター（メリハリを出しつつクリーンに） */}
             {quizIndex < cards.length && (
                 <div className={`w-full p-1 rounded-2xl flex border ${isDark ? 'bg-slate-950 border-slate-900' : 'bg-slate-50 border-slate-200/40'}`}>
                     {[
-                        { id: 'choice4' as const, label: 'Choice' },
-                        { id: 'typing' as const, label: 'Typing' },
-                        { id: 'boolean' as const, label: 'True / False' }
+                        { id: 'choice4' as const, label: '選択' },
+                        { id: 'typing' as const, label: '入力' },
+                        { id: 'boolean' as const, label: '○ / ✕' }
                     ].map((mode) => (
                         <button
                             key={mode.id}
                             disabled={isAnswered}
                             onClick={() => setQuizMode(mode.id)}
-                            className={`flex-1 py-1.5 rounded-xl text-[11px] font-bold tracking-tight transition-all duration-200 ${quizMode === mode.id
+                            className={`flex-1 py-2 rounded-xl text-[12px] font-bold tracking-tight transition-all duration-200 ${quizMode === mode.id
                                     ? isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-800 shadow-xs border border-slate-200/30'
                                     : 'text-slate-400/90 hover:text-slate-600'
                                 }`}
@@ -133,29 +133,29 @@ export default function QuizContainer({
                     )}
 
                     {/* 📝 問題カードエリア（輪郭をはっきりさせた白カード） */}
-                    <div className={`p-7 rounded-3xl border text-center ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200/50 shadow-xs'}`}>
+                    <div className={`p-7 sm:p-8 rounded-3xl border text-center ${isDark ? 'bg-slate-950 border-slate-800' : 'bg-white border-slate-200/50 shadow-xs'}`}>
                         {quizMode === 'choice4' && (
-                            <h3 className="text-[15px] font-bold tracking-tight text-slate-800 dark:text-slate-50">{cards[quizIndex].front}</h3>
+                            <h3 className="text-[18px] sm:text-[20px] font-black tracking-tight text-slate-800 dark:text-slate-50">{cards[quizIndex].front}</h3>
                         )}
 
                         {quizMode === 'typing' && (
-                            <div className="space-y-0.5">
-                                <h3 className="text-[15px] font-bold tracking-tight text-slate-800 dark:text-slate-50">{cards[quizIndex].back}</h3>
+                            <div className="space-y-1.5">
+                                <h3 className="text-[18px] sm:text-[20px] font-black tracking-tight text-slate-800 dark:text-slate-50">{cards[quizIndex].back}</h3>
                                 {cards[quizIndex].example && (
-                                    <p className="text-xs text-slate-400 font-medium italic pt-1">{cards[quizIndex].example}</p>
+                                    <p className="text-sm text-slate-400 font-medium italic pt-1">{cards[quizIndex].example}</p>
                                 )}
                             </div>
                         )}
 
                         {quizMode === 'boolean' && (
-                            <div className="space-y-3 py-0.5 max-w-[240px] mx-auto">
-                                <div className="flex justify-between items-baseline border-b border-slate-100 dark:border-slate-900 pb-1.5">
+                            <div className="space-y-3 py-0.5 max-w-[320px] mx-auto">
+                                <div className="flex justify-between items-baseline border-b border-slate-100 dark:border-slate-900 pb-1.5 gap-3">
                                     <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider">Front</span>
-                                    <p className="text-sm font-bold text-slate-800 dark:text-slate-50">{cards[quizIndex].front}</p>
+                                    <p className="text-base font-bold text-slate-800 dark:text-slate-50">{cards[quizIndex].front}</p>
                                 </div>
-                                <div className="flex justify-between items-baseline">
+                                <div className="flex justify-between items-baseline gap-3">
                                     <span className="text-[9px] font-mono font-bold text-slate-400 uppercase tracking-wider">Back</span>
-                                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{booleanCurrentDisplay.text}</p>
+                                    <p className="text-base font-bold text-slate-700 dark:text-slate-200">{booleanCurrentDisplay.text}</p>
                                 </div>
                             </div>
                         )}
@@ -193,7 +193,7 @@ export default function QuizContainer({
                                         key={idx}
                                         disabled={quizSelected !== null}
                                         onClick={() => handleChoice4Answer(option)}
-                                        className={`w-full py-2.5 px-4 rounded-xl border text-left text-[11px] font-bold tracking-tight transition-all duration-150 ${btnStyle}`}
+                                        className={`w-full min-h-[54px] py-2.5 px-4 rounded-xl border text-left text-[12px] font-bold tracking-tight transition-all duration-150 ${btnStyle}`}
                                     >
                                         {option}
                                     </button>
@@ -207,11 +207,11 @@ export default function QuizContainer({
                         <input
                             type="text"
                             autoFocus
-                            placeholder="Type your answer..."
+                            placeholder="答えを入力..."
                             value={typingAnswer}
                             onChange={(e) => setTypingAnswer(e.target.value)}
                             disabled={isTypingCorrect !== null}
-                            className={`w-full px-4 py-2.5 rounded-xl text-xs font-mono font-bold border text-center transition-all duration-200 ${inputBgClass} ${isTypingCorrect === true ? 'border-emerald-300 bg-emerald-50/70 text-emerald-600 font-bold' :
+                            className={`w-full px-4 py-3 rounded-xl text-sm font-mono font-bold border text-center transition-all duration-200 ${inputBgClass} ${isTypingCorrect === true ? 'border-emerald-300 bg-emerald-50/70 text-emerald-600 font-bold' :
                                     isTypingCorrect === false ? 'border-rose-300 bg-rose-50/70 text-rose-600 font-bold' :
                                         'focus:border-blue-400 focus:ring-4 focus:ring-blue-500/5'
                                 }`}
@@ -229,7 +229,7 @@ export default function QuizContainer({
                             <button
                                 disabled={booleanSelected !== null}
                                 onClick={() => handleBooleanAnswer('yes')}
-                                className={`py-2.5 rounded-xl font-bold transition-all border text-xs shadow-xs ${booleanSelected
+                                className={`min-h-[54px] py-2.5 rounded-xl font-bold transition-all border text-sm shadow-xs ${booleanSelected
                                         ? booleanCurrentDisplay.isCorrectOption
                                             ? 'bg-emerald-50/70 border-emerald-300 text-emerald-600'
                                             : booleanSelected === 'yes' ? 'bg-rose-50/70 border-rose-300 text-rose-600' : 'opacity-20 border-transparent'
@@ -238,12 +238,12 @@ export default function QuizContainer({
                                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                     }`}
                             >
-                                True
+                                真
                             </button>
                             <button
                                 disabled={booleanSelected !== null}
                                 onClick={() => handleBooleanAnswer('no')}
-                                className={`py-2.5 rounded-xl font-bold transition-all border text-xs shadow-xs ${booleanSelected
+                                className={`min-h-[54px] py-2.5 rounded-xl font-bold transition-all border text-sm shadow-xs ${booleanSelected
                                         ? !booleanCurrentDisplay.isCorrectOption
                                             ? 'bg-emerald-50/70 border-emerald-300 text-emerald-600'
                                             : booleanSelected === 'no' ? 'bg-rose-50/70 border-rose-300 text-rose-600' : 'opacity-20 border-transparent'
@@ -252,7 +252,7 @@ export default function QuizContainer({
                                             : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
                                     }`}
                             >
-                                False
+                                偽
                             </button>
                         </div>
                     )}
@@ -267,16 +267,16 @@ export default function QuizContainer({
                                     exit={{ opacity: 0 }}
                                     className="space-y-0.5"
                                 >
-                                    <p className={`text-[11px] font-extrabold tracking-wider uppercase ${isCurrentCorrect ? 'text-emerald-500' : 'text-rose-500'
+                                    <p className={`text-[13px] sm:text-[14px] font-black tracking-wider ${isCurrentCorrect ? 'text-emerald-500' : 'text-rose-500'
                                         }`}>
-                                        {isCurrentCorrect ? '✓ Correct' : '✕ Incorrect'}
+                                        {isCurrentCorrect ? '正解！' : '不正解'}
                                     </p>
 
                                     {!isCurrentCorrect && (
                                         <p className="text-[10px] font-bold text-slate-400 font-mono tracking-tight">
-                                            {quizMode === 'choice4' && `Correct: ${cards[quizIndex].back}`}
-                                            {quizMode === 'typing' && `Correct: ${cards[quizIndex].front}`}
-                                            {quizMode === 'boolean' && `Correct answer: ${cards[quizIndex].front} = ${cards[quizIndex].back}`}
+                                            {quizMode === 'choice4' && `正解: ${cards[quizIndex].back}`}
+                                            {quizMode === 'typing' && `正解: ${cards[quizIndex].front}`}
+                                            {quizMode === 'boolean' && `正解: ${cards[quizIndex].front} = ${cards[quizIndex].back}`}
                                         </p>
                                     )}
                                 </motion.div>

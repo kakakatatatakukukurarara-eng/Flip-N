@@ -1,6 +1,13 @@
 import { useState } from 'react';
 import type { SupabaseClientMinimal } from '../types';
-import { buildStudyLogsMap, createInitialDailyMissions, incrementMissionProgress as incrementMissionProgressHelper } from '../lib/studyGame';
+import {
+  buildStudyLogsMap,
+  calculateStudyStreak,
+  createInitialDailyMissions,
+  getDateDifferenceInDays,
+  getLocalDateString,
+  incrementMissionProgress as incrementMissionProgressHelper,
+} from '../lib/studyGame';
 
 export type MissionType = 'study' | 'test' | 'speak';
 
@@ -33,79 +40,47 @@ export function useStudyProgress(
   };
 
   async function syncStreak(currentUser: StudyProgressUser | null) {
-    const now = new Date();
-    const todayStr = now.toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
     if (!currentUser) {
       if (typeof window === 'undefined') return;
 
-      const today = now.toDateString();
-      const lastLogin = localStorage.getItem('last_login_date');
-      const currentStreak = parseInt(localStorage.getItem('streak_count') || '0', 10);
-
-      if (lastLogin === today) {
-        setStreak(currentStreak === 0 ? 1 : currentStreak);
-      } else if (lastLogin === new Date(Date.now() - 86400000).toDateString()) {
-        const newStreak = currentStreak + 1;
-        localStorage.setItem('streak_count', newStreak.toString());
-        localStorage.setItem('last_login_date', today);
-        setStreak(newStreak);
-      } else {
-        localStorage.setItem('streak_count', '1');
-        localStorage.setItem('last_login_date', today);
-        setStreak(1);
-      }
+      const lastStudy = localStorage.getItem('last_study_date') || '';
+      const savedStreak = Number.parseInt(localStorage.getItem('streak_count') || '0', 10);
+      const daysSinceLastStudy = getDateDifferenceInDays(lastStudy, todayStr);
+      setLastStudyDate(lastStudy);
+      setStreak(daysSinceLastStudy >= 0 && daysSinceLastStudy <= 1 ? savedStreak : 0);
       return;
     }
 
     try {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('streak_count, last_login_date')
+        .select('streak_count, last_study_date')
         .eq('id', currentUser.id)
         .maybeSingle();
 
       if (!profile) {
-        const { data: newProfile } = await supabase
+        await supabase
           .from('profiles')
-          .insert([{ id: currentUser.id, streak_count: 1, last_login_date: todayStr }])
-          .select()
-          .single();
-        if (newProfile) setStreak(1);
+          .insert([{ id: currentUser.id, streak_count: 0, last_study_date: null }]);
+        setStreak(0);
+        setLastStudyDate('');
         return;
       }
 
-      const currentStreak = profile.streak_count || 0;
-      const lastLogin = profile.last_login_date;
-      let nextStreak = currentStreak;
-
-      if (lastLogin === todayStr) {
-        nextStreak = currentStreak === 0 ? 1 : currentStreak;
-      } else {
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-        if (lastLogin === yesterdayStr) {
-          nextStreak = currentStreak + 1;
-        } else {
-          nextStreak = 1;
-        }
-
-        await supabase
-          .from('profiles')
-          .update({ streak_count: nextStreak, last_login_date: todayStr, updated_at: new Date().toISOString() })
-          .eq('id', currentUser.id);
-      }
-
-      setStreak(nextStreak);
+      const savedStreak = Number(profile.streak_count) || 0;
+      const lastStudy = profile.last_study_date || '';
+      const daysSinceLastStudy = getDateDifferenceInDays(lastStudy, todayStr);
+      setLastStudyDate(lastStudy);
+      setStreak(daysSinceLastStudy >= 0 && daysSinceLastStudy <= 1 ? savedStreak : 0);
     } catch (e) {
       console.error('Streak sync error:', e);
     }
   }
 
   async function recordStudy() {
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = getLocalDateString();
 
     if (!user) {
       if (typeof window === 'undefined') return;
@@ -114,7 +89,33 @@ export function useStudyProgress(
       localLogs[todayStr] = (localLogs[todayStr] || 0) + 1;
       localStorage.setItem('study_logs_local', JSON.stringify(localLogs));
       setStudyLogs(buildStudyLogsMap(localLogs));
+      if (lastStudyDate !== todayStr) {
+        const nextStreak = calculateStudyStreak(streak, lastStudyDate, todayStr);
+        localStorage.setItem('streak_count', String(nextStreak));
+        localStorage.setItem('last_study_date', todayStr);
+        setStreak(nextStreak);
+        setLastStudyDate(todayStr);
+        showToast(`🔥 ストリーク達成！ ${nextStreak} 日連続勉強中！`, 'success');
+      }
       return;
+    }
+
+    if (lastStudyDate !== todayStr) {
+      const nextStreak = calculateStudyStreak(streak, lastStudyDate, todayStr);
+      setStreak(nextStreak);
+      setLastStudyDate(todayStr);
+
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({ streak_count: nextStreak, last_study_date: todayStr, updated_at: new Date().toISOString() })
+          .eq('id', user.id);
+
+        if (error) throw error;
+        showToast(`🔥 ストリーク達成！ ${nextStreak} 日連続勉強中！`, 'success');
+      } catch (e) {
+        console.error('Streak update failed:', e);
+      }
     }
 
     try {
@@ -166,37 +167,6 @@ export function useStudyProgress(
     }
   }
 
-  async function handleStudyComplete() {
-    if (!user) return;
-
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    if (lastStudyDate === todayStr) {
-      showToast('今日は既にストリークを更新済みです。', 'info');
-      return;
-    }
-
-    const newStreak = streak + 1;
-
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          streak_count: newStreak,
-          last_study_date: todayStr,
-        })
-        .eq('id', user.id);
-
-      if (error) throw error;
-
-      setStreak(newStreak);
-      setLastStudyDate(todayStr);
-      showToast(`🔥 ストリーク達成！ ${newStreak} 日連続勉強中！`, 'success');
-    } catch (err) {
-      console.error('Streak update failed:', err);
-    }
-  }
-
   return {
     streak,
     setStreak,
@@ -210,6 +180,5 @@ export function useStudyProgress(
     syncStreak,
     recordStudy,
     fetchStudyLogs,
-    handleStudyComplete,
   };
 }
