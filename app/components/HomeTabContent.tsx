@@ -70,12 +70,39 @@ export default function HomeTabContent({
 
   const dueCardsCount = cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0).length;
   const weakCardsCount = cards.filter((card) => (card.interval ?? 1) >= 3 || (card.repetition ?? 0) <= 1).length;
+  const uniqueAnswerCount = new Set(cards.map((card) => card.back)).size;
   const routineTasks = [
     { label: '復習を1問進める', done: dailyMissions.studyCount >= 1 },
     { label: 'クイズに1回挑戦', done: dailyMissions.testCompleted },
     { label: '音声チェックを1回試す', done: dailyMissions.speakCompleted },
   ];
   const routineProgress = Math.round((routineTasks.filter((task) => task.done).length / routineTasks.length) * 100);
+  const reviewCards = cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0);
+  const masteredCards = cards.filter((card) => (card.interval ?? 1) > 1).length;
+
+  const learningPlan = React.useMemo(() => {
+    const planSteps = [
+      {
+        title: 'Warm-up',
+        detail: reviewCards.length > 0 ? `${reviewCards.length}枚の苦手カードを先に確認` : '今日の復習対象はほぼクリアです',
+      },
+      {
+        title: 'Core drill',
+        detail: dailyGoal > 0 ? `${Math.max(1, Math.min(10, Math.round(dailyGoal / 2)))}問を集中して解いて記憶を定着させる` : 'カードを3〜5枚で復習の流れを作る',
+      },
+      {
+        title: 'Confidence boost',
+        detail: `得意分野の定着率 ${Math.min(100, Math.max(0, Math.round((masteredCards / Math.max(cards.length, 1)) * 100)))}% を維持して次の学習へ進む`,
+      },
+    ];
+
+    return {
+      title: userHobby ? `${userHobby}テーマの学習プラン` : 'AI学習プラン',
+      summary: reviewCards.length > 0 ? '今の状態は「再確認が必要なカード」が多いので、短時間で確実に定着させる設計です。' : '習得が安定しているので、次の目標は「学習量を少しずつ増やす」ことです。',
+      duration: `${Math.max(12, Math.min(30, 8 + reviewCards.length + Math.round(streak / 2)))}分`,
+      steps: planSteps,
+    };
+  }, [cards.length, dailyGoal, masteredCards, reviewCards.length, streak, userHobby]);
 
   return (
     <main className="flex-grow min-w-0 flex flex-col p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -126,6 +153,39 @@ export default function HomeTabContent({
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
             <p className="text-[9px] font-mono font-bold tracking-[0.24em] uppercase text-blue-500">Daily mini habit</p>
+
+        <section className={`rounded-[28px] border p-5 bg-gradient-to-br from-cyan-500/[0.06] via-transparent to-violet-500/[0.06] ${subContainerClass}`}>
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-[0.2em] text-cyan-500 uppercase">
+              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" /> AI STUDY PLAN
+            </div>
+            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[9px] font-mono font-bold text-cyan-400">
+              {learningPlan.duration}
+            </span>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
+            <div className="flex-1">
+              <h3 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">{learningPlan.title}</h3>
+              <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">{learningPlan.summary}</p>
+            </div>
+            <button
+              onClick={() => setActiveTab('study')}
+              className="shrink-0 min-h-[46px] px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-mono font-bold text-[10px] tracking-[0.18em] uppercase transition hover:opacity-95"
+            >
+              START PLAN
+            </button>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
+            {learningPlan.steps.map((step) => (
+              <div key={step.title} className={`p-3 rounded-2xl border ${innerBoxClass}`}>
+                <p className="text-[9px] font-mono font-bold tracking-[0.18em] uppercase text-slate-400">{step.title}</p>
+                <p className="mt-2 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
             <h3 className="mt-2 text-xl font-black tracking-tight">今日のルーティン</h3>
           </div>
           <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-mono font-bold text-blue-600">
@@ -201,9 +261,11 @@ export default function HomeTabContent({
           )}
         </div>
 
-        {cards.length < 4 ? (
+        {cards.length < 4 || uniqueAnswerCount < 2 ? (
           <div className="py-4 text-center">
-            <p className="text-[10px] text-slate-500 font-mono">クイズを開始するには単語を4枚以上登録してください</p>
+            <p className="text-[10px] text-slate-500 font-mono">
+              {cards.length < 4 ? 'クイズを開始するには単語を4枚以上登録してください' : '異なる答えのカードを2種類以上用意してください'}
+            </p>
           </div>
         ) : quickQuizCard && (
           <div className="space-y-3">

@@ -1,7 +1,7 @@
 "use client";
 
 import confetti from 'canvas-confetti';
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useEffectEvent } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { createWorker } from 'tesseract.js';
@@ -25,11 +25,22 @@ import DashboardTabContent from './components/DashboardTabContent';
 import CourseSelectorModal from './components/CourseSelectorModal';
 import CardExplainModal, { type CardExplanation } from './components/CardExplainModal';
 import { COURSE_PRESETS, PRESET_DECKS } from './data/presets';
+import { buildQuizChoices } from './lib/studyGame';
 import type { Deck } from './types';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+async function getAIRequestHeaders() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error || !session?.access_token) throw new Error('AI機能を使うにはログインが必要です。');
+
+  return {
+    'Content-Type': 'application/json',
+    Authorization: `Bearer ${session.access_token}`,
+  };
+}
 
 interface Card {
   id: number;
@@ -95,6 +106,7 @@ function calculatePronunciationScore(target: string, spoken: string) {
 
 export default function UltimateStudyExperience() {
   const [user, setUser] = useState<PageUser | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   // 🎮 ミニクイズ用のState
   const [quickQuizCard, setQuickQuizCard] = useState<Card | null>(null); // 出題するカード
@@ -122,6 +134,8 @@ export default function UltimateStudyExperience() {
   const [activeTab, setActiveTab] = useState<'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard'>('home');
   const [theme, setTheme] = useState<'dark' | 'light'>('dark');
   const [isHydrated, setIsHydrated] = useState(false);
+  const toastTimeoutRef = useRef<number | null>(null);
+  const studyAnswerInFlightRef = useRef(false);
 
   useEffect(() => {
     const savedTheme = window.localStorage.getItem('user_theme');
@@ -132,11 +146,19 @@ export default function UltimateStudyExperience() {
     setIsHydrated(true);
   }, []);
 
-  function showToast(message: string, type: 'success' | 'error' | 'info' = 'info') {
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToastMessage(message);
     setToastType(type);
-    setTimeout(() => setToastMessage(null), 3000);
-  }
+    if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimeoutRef.current = null;
+    }, 3000);
+  }, []);
+
+  useEffect(() => () => {
+    if (toastTimeoutRef.current !== null) window.clearTimeout(toastTimeoutRef.current);
+  }, []);
 
   const {
     isProfileOpen,
@@ -196,27 +218,17 @@ export default function UltimateStudyExperience() {
   } = useQuiz(cards, testTimer, speak); // 💡 testTimer と speak を渡して連動！
 
   // 🎮 ミニクイズを生成する関数
-  const generateQuickQuiz = () => {
-    if (cards.length < 4) return; // 選択肢を作るために最低4枚必要
+  const generateQuickQuiz = useCallback(() => {
+    if (cards.length < 4 || new Set(cards.map((card) => card.back)).size < 2) return;
 
-    // 1. ランダムに正解カードを1枚選ぶ
     const correctCard = cards[Math.floor(Math.random() * cards.length)];
-
-    // 2. 不正解の選択肢を3つ選ぶ（正解以外からランダム）
-    const dummies = cards
-      .filter(c => c.id !== correctCard.id)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3)
-      .map(c => c.back);
-
-    // 3. 正解と不正解を混ぜてシャッフル
-    const options = [...dummies, correctCard.back].sort(() => 0.5 - Math.random());
+    const options = buildQuizChoices(cards.map((card) => card.back), correctCard.back);
 
     setQuickQuizCard(correctCard);
     setQuickQuizOptions(options);
     setQuickQuizStatus('idle');
     setSelectedOption(null);
-  };
+  }, [cards]);
 
   // 🌟 ホーム画面が開いた時にクイズを1問作る
   useEffect(() => {
@@ -226,7 +238,7 @@ export default function UltimateStudyExperience() {
       }, 0);
       return () => window.clearTimeout(id);
     }
-  }, [activeTab, cards, quickQuizCard]);
+  }, [activeTab, cards.length, quickQuizCard, generateQuickQuiz]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -297,9 +309,7 @@ export default function UltimateStudyExperience() {
   const {
     streak,
     dailyMissions,
-    setDailyMissions,
     studyLogs,
-    setStudyLogs,
     incrementMissionProgress,
     syncStreak,
     recordStudy,
@@ -312,6 +322,7 @@ export default function UltimateStudyExperience() {
   const { handleShareDeck, fetchAndPromptImport } = useDeckSharing(
     user,
     supabase,
+    currentDeckId,
     cards,
     setCards,
     (message, type = 'info') => {
@@ -322,39 +333,77 @@ export default function UltimateStudyExperience() {
 
   // 🌟 2. URLのパラメータから自動でインポート画面を起動する処理 (useEffect)
   useEffect(() => {
+    if (!isAuthReady) return;
+
     const queryParams = new URLSearchParams(window.location.search);
     const deckId = queryParams.get('deck_id');
 
     if (deckId) {
-      fetchAndPromptImport(deckId);
+      queryParams.delete('deck_id');
+      const remainingParams = queryParams.toString();
+      const cleanUrl = `${window.location.pathname}${remainingParams ? `?${remainingParams}` : ''}${window.location.hash}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+      void fetchAndPromptImport(deckId);
     }
-  }, [fetchAndPromptImport]);
+  }, [fetchAndPromptImport, isAuthReady]);
 
   useEffect(() => {
+    setEditDisplayName('');
+    setUserHobby('');
+    setDailyGoal(20);
+    setAvatarUrl('');
+    setIsAutoPlay(true);
+    setAudioSpeed('1.0');
+    setTestTimer('none');
+    setIsProfileOpen(false);
+    setIsSettingsOpen(false);
+
+    if (!user?.id) return;
+
+    let isCurrent = true;
     const fetchUserSettings = async () => {
-      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (data && !error) {
-        // 共通のプロファイル値をStateへ復元
-        setEditDisplayName(data.display_name || '');
-        setUserHobby(data.user_hobby || '');
-        setDailyGoal(data.daily_goal || 20);
-        setAvatarUrl(data.avatar_url || '');
-        setIsAutoPlay(data.is_autoplay ?? true);
-        setAudioSpeed(data.audio_speed || '1.0');
-        setTestTimer(data.test_timer || 'none');
-
+        if (error) throw error;
+        if (data && isCurrent) {
+          setEditDisplayName(data.display_name || '');
+          setUserHobby(data.user_hobby || '');
+          setDailyGoal(data.daily_goal ?? 20);
+          setAvatarUrl(data.avatar_url || '');
+          setIsAutoPlay(data.is_autoplay ?? true);
+          setAudioSpeed(data.audio_speed || '1.0');
+          setTestTimer(data.test_timer || 'none');
+        }
+      } catch (error) {
+        if (isCurrent) {
+          console.error('プロフィール情報の取得に失敗:', error);
+          showToast('プロフィールの取得に失敗しました。', 'error');
+        }
       }
     };
 
-    fetchUserSettings();
-  }, [user]); // user（ログイン状態）が変わったら実行
+    void fetchUserSettings();
+    return () => {
+      isCurrent = false;
+    };
+  }, [
+    user?.id,
+    showToast,
+    setEditDisplayName,
+    setUserHobby,
+    setDailyGoal,
+    setAvatarUrl,
+    setIsAutoPlay,
+    setAudioSpeed,
+    setTestTimer,
+    setIsProfileOpen,
+    setIsSettingsOpen,
+  ]);
 
   const [isRecording, setIsRecording] = useState(false);
   const [pronunciationScore, setPronunciationScore] = useState<number | null>(null);
@@ -398,40 +447,13 @@ export default function UltimateStudyExperience() {
   const [cardExplanation, setCardExplanation] = useState<CardExplanation | null>(null);
   const [isExplainingCard, setIsExplainingCard] = useState(false);
 
-  const playSound = (type: 'correct' | 'wrong') => {
-    if (typeof window === 'undefined') return;
-    try {
-      const AudioCtor = window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtor) return;
-
-      const ctx = new AudioCtor();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-
-      if (type === 'correct') {
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(880, ctx.currentTime);
-        osc.frequency.setValueAtTime(1760, ctx.currentTime + 0.1);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
-        osc.start(); osc.stop(ctx.currentTime + 0.2);
-      } else if (type === 'wrong') {
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, ctx.currentTime);
-        gain.gain.setValueAtTime(0.1, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-        osc.start(); osc.stop(ctx.currentTime + 0.3);
-      }
-    } catch (e) {
-      console.log("Audio not supported");
-    }
-  };
-
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!user) {
+      showToast('画像からカードを生成するにはログインが必要です。', 'info');
+      return;
+    }
 
     setIsProcessingImage(true);
     showToast("⏳ 画像をスキャンして文字を抽出中...", "info");
@@ -451,7 +473,7 @@ export default function UltimateStudyExperience() {
 
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: await getAIRequestHeaders(),
         body: JSON.stringify({
           text,
           userHobby: userHobby || '日常会話',
@@ -482,6 +504,11 @@ export default function UltimateStudyExperience() {
   };
 
   async function handleExplainCard(card: Card) {
+    if (!user) {
+      showToast('カード解説を使うにはログインが必要です。', 'info');
+      return;
+    }
+
     setExplainCard(card);
     setCardExplanation(null);
     setIsExplainingCard(true);
@@ -489,7 +516,7 @@ export default function UltimateStudyExperience() {
     try {
       const response = await fetch('/api/explain', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAIRequestHeaders(),
         body: JSON.stringify({ front: card.front, back: card.back, example: card.example, hobby: userHobby }),
       });
       const data = await response.json() as { explanation?: CardExplanation; error?: string };
@@ -502,40 +529,6 @@ export default function UltimateStudyExperience() {
       setIsExplainingCard(false);
     }
   }
-
-  const handleAiGenerate = async () => {
-    try {
-      // inputText は画面のテキストエリアに入力された文字列
-      // userHobby は「野球」などの趣味のState
-      const response = await fetch('/api/generate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          text: aiText,
-          userHobby: userHobby,
-        }),
-      });
-
-      if (!response.ok) throw new Error('生成に失敗しました');
-
-      const data = await response.json();
-
-      // data.flashcards の中に、AIが自動抽出して作った単語カードの配列が入って返ってきます！
-      console.log("生成されたカード一覧:", data.flashcards);
-
-      // あとは、既存の単語帳リストのState（cardsなど）にガッチャンコして保存するだけ！
-      // setCards([...cards, ...data.flashcards]);
-
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const vibrate = (pattern: number | number[]) => {
-    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-      navigator.vibrate(pattern);
-    }
-  };
 
   useEffect(() => {
     if ('serviceWorker' in navigator && 'Notification' in window) {
@@ -553,15 +546,22 @@ export default function UltimateStudyExperience() {
         console.warn('保存済みの認証セッションを復元できませんでした。再ログインが必要です。', error.message);
         await supabase.auth.signOut({ scope: 'local' });
       }
-      if (isMounted) setUser(error ? null : session?.user ?? null);
+      if (isMounted) {
+        setUser(error ? null : session?.user ?? null);
+        setIsAuthReady(true);
+      }
     }).catch(async (error) => {
       console.warn('認証セッションの確認に失敗しました。', error);
       await supabase.auth.signOut({ scope: 'local' });
-      if (isMounted) setUser(null);
+      if (isMounted) {
+        setUser(null);
+        setIsAuthReady(true);
+      }
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      setIsAuthReady(true);
     });
 
     return () => {
@@ -596,7 +596,17 @@ export default function UltimateStudyExperience() {
   async function fetchCards() {
     setLoading(true);
     if (!user) {
-      setCards(COURSE_PRESETS.daily.map((c, i) => ({ id: -i, ...c, interval: 1, next_review_at: "" })));
+      let guestSharedCards: Card[] = [];
+      try {
+        const storedCards: unknown = JSON.parse(localStorage.getItem('guest_shared_cards') || '[]');
+        if (Array.isArray(storedCards)) guestSharedCards = storedCards as Card[];
+      } catch (error) {
+        console.error('Failed to load guest shared cards:', error);
+      }
+      setCards([
+        ...COURSE_PRESETS.daily.map((c, i) => ({ id: -i, ...c, interval: 1, next_review_at: "" })),
+        ...guestSharedCards,
+      ]);
       setLoading(false);
       return;
     }
@@ -627,8 +637,8 @@ export default function UltimateStudyExperience() {
         setShowCourseSelector(false);
         setCards(filteredData);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -674,8 +684,8 @@ export default function UltimateStudyExperience() {
         .eq('is_public', true)
         .neq('user_id', user.id);
       if (data) setSharedCards(data);
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      console.error(error);
     }
   }
 
@@ -702,7 +712,7 @@ export default function UltimateStudyExperience() {
       } else {
         showToast('インポートに失敗しました。', 'error');
       }
-    } catch (e) {
+    } catch {
       showToast('エラーが発生しました。', 'error');
     }
   }
@@ -746,8 +756,8 @@ export default function UltimateStudyExperience() {
       setNewDeckDesc('');
       setIsDeckPublic(false);
       showToast('新しい単語帳を作成しました！', 'success');
-    } catch (e) {
-      console.error('Failed to create deck:', e);
+    } catch (error) {
+      console.error('Failed to create deck:', error);
       showToast('デッキ作成中にエラーが発生しました。Supabaseの設定を確認してください。', 'error');
     }
   }
@@ -757,11 +767,15 @@ export default function UltimateStudyExperience() {
 
     try {
       if (copyCards) {
-        const cardsToCopy = cards.map(({ id, ...card }) => ({
-          ...card,
-          user_id: user.id,
-          deck_id: targetDeckId,
-        }));
+        const cardsToCopy = cards.map((card) => {
+          const { id, ...cardData } = card;
+          void id;
+          return {
+            ...cardData,
+            user_id: user.id,
+            deck_id: targetDeckId,
+          };
+        });
         const { error } = await supabase.from('cards').insert(cardsToCopy);
         if (error) throw error;
       } else {
@@ -800,17 +814,22 @@ export default function UltimateStudyExperience() {
       return;
     }
 
+    if (studyAnswerInFlightRef.current) return;
+    studyAnswerInFlightRef.current = true;
     recordStudy();
+    incrementMissionProgress('study');
 
     if (!user) {
       setIsFlipped(false);
-      setTimeout(() => { setCurrentIndex((prev) => prev + 1); }, 200);
+      window.setTimeout(() => {
+        setCurrentIndex((prev) => prev + 1);
+        studyAnswerInFlightRef.current = false;
+      }, 200);
       return;
     }
 
     const nextIndex = currentIndex + 1;
     const safeNextIndex = nextIndex >= displayCards.length ? 0 : nextIndex;
-    setCurrentIndex(safeNextIndex);
 
     let interval = currentCard.interval || 1;
     let efactor = currentCard.efactor || 2.5;
@@ -837,7 +856,7 @@ export default function UltimateStudyExperience() {
     nextReviewDate.setDate(nextReviewDate.getDate() + interval);
 
     try {
-      await supabase
+      const { error } = await supabase
         .from('cards')
         .update({
           interval,
@@ -846,13 +865,18 @@ export default function UltimateStudyExperience() {
           next_review_at: nextReviewDate.toISOString()
         })
         .eq('id', currentCard.id);
-    } catch (e) {
-      console.error(e);
+      if (error) throw error;
+    } catch (error) {
+      console.error(error);
+      showToast('学習結果を保存できませんでした。もう一度お試しください。', 'error');
+      setIsFlipped(false);
+      studyAnswerInFlightRef.current = false;
+      return;
     }
 
+    studyAnswerInFlightRef.current = false;
+    setCurrentIndex(safeNextIndex);
     setIsFlipped(false);
-
-    incrementMissionProgress('study');
   }
 
   async function handleSelectCourse(courseType: 'daily' | 'business') {
@@ -869,26 +893,8 @@ export default function UltimateStudyExperience() {
       setShowCourseSelector(false);
       showToast('コースのインポートが完了しました！', 'success');
       fetchCards();
-    } catch (e) {
+    } catch {
       showToast('インポートに失敗しました。', 'error');
-    }
-  }
-
-  async function triggerTestNotification() {
-    if (!('Notification' in window)) {
-      showToast('このブラウザは通知をサポートしていません。', 'info');
-      return;
-    }
-    const permission = await Notification.requestPermission();
-    if (permission === 'granted') {
-      navigator.serviceWorker.ready.then((registration) => {
-        registration.showNotification('FLIP-N PRO', {
-          body: '通知の設定が完了しました！ストリークを維持しましょう🔥',
-          icon: '/icon-192.png',
-        });
-      });
-    } else {
-      showToast('通知がブロックされています。', 'error');
     }
   }
 
@@ -902,7 +908,7 @@ export default function UltimateStudyExperience() {
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await getAIRequestHeaders(),
         body: JSON.stringify({ text: aiText, userHobby: userHobby || '日常会話' })
       });
       const data = await res.json();
@@ -919,7 +925,7 @@ export default function UltimateStudyExperience() {
       } else {
         showToast(data?.error || '生成処理が失敗しました。', 'error');
       }
-    } catch (e) {
+    } catch {
       showToast('AI生成でエラーが発生しました。APIキー設定を確認してください。', 'error');
     } finally {
       setIsGenerating(false);
@@ -967,7 +973,7 @@ export default function UltimateStudyExperience() {
       } else {
         showToast('データベースへの保存に失敗しました。', 'error');
       }
-    } catch (e) {
+    } catch {
       showToast('保存エラーが発生しました。', 'error');
     }
   }
@@ -976,11 +982,7 @@ export default function UltimateStudyExperience() {
   useEffect(() => {
     syncStreak(user);
     fetchStudyLogs(user);
-    if (user) {
-      fetchCards();    // 自分のデッキを読み込む
-      fetchSharedCards();   // みんなの公開デッキを読み込む
-    }
-  }, [user]);
+  }, [fetchStudyLogs, syncStreak, user]);
 
 
 
@@ -991,9 +993,6 @@ export default function UltimateStudyExperience() {
       localStorage.setItem('user_theme', nextTheme);
     }
   };
-
-  useEffect(() => {
-  }, [cards]);
 
   const displayCards = useMemo(() => {
     const now = Date.now();
@@ -1019,19 +1018,25 @@ export default function UltimateStudyExperience() {
       });
   }, [cards, selectedCategory, searchQuery]);
 
+  const handleStudyShortcut = useEffectEvent((quality: number) => {
+    handleResponse(quality);
+  });
+
   useEffect(() => {
     if (activeTab !== 'study' || displayCards.length === 0 || currentIndex >= displayCards.length) return;
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === ' ' || e.key === 'Spacebar') {
-        e.preventDefault();
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.target instanceof HTMLElement && (event.target.isContentEditable || event.target.closest('input, textarea, select, [contenteditable="true"]'))) return;
+
+      if (event.key === ' ' || event.key === 'Spacebar') {
+        event.preventDefault();
         setIsFlipped(prev => !prev);
-      } else if (e.key === 'ArrowRight' || e.key === 'l') {
-        handleResponse(5);
-      } else if (e.key === 'ArrowUp' || e.key === 'k') {
-        handleResponse(3);
-      } else if (e.key === 'ArrowLeft' || e.key === 'h') {
-        handleResponse(0);
+      } else if (event.key === 'ArrowRight' || event.key === 'l') {
+        handleStudyShortcut(5);
+      } else if (event.key === 'ArrowUp' || event.key === 'k') {
+        handleStudyShortcut(3);
+      } else if (event.key === 'ArrowLeft' || event.key === 'h') {
+        handleStudyShortcut(0);
       }
     };
 
@@ -1051,49 +1056,6 @@ export default function UltimateStudyExperience() {
   useEffect(() => {
     if (activeTab === 'test') startQuiz();
   }, [activeTab, cards]);
-
-  function makeQuizOptions(index: number) {
-    startQuiz();
-    if (!cards[index]) return;
-    const correctAnswer = cards[index].back;
-    const wrongAnswers = cards
-      .filter(c => c.back !== correctAnswer)
-      .map(c => c.back)
-      .sort(() => 0.5 - Math.random())
-      .slice(0, 3);
-
-    const options = [correctAnswer, ...wrongAnswers].sort(() => 0.5 - Math.random());
-    startQuiz();
-  }
-
-  function handleQuizAnswer(option: string) {
-    if (quizSelected) return;
-    startQuiz();
-
-    const isCorrect = option === cards[quizIndex].back;
-    if (isCorrect) {
-      startQuiz();
-      playSound('correct');
-      vibrate(50);
-      if (quizIndex + 1 === cards.length && quizScore + 1 === cards.length) {
-        setTimeout(() => confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }), 500);
-      }
-    } else {
-      playSound('wrong');
-      vibrate([50, 100, 50]);
-    }
-
-    setTimeout(() => {
-      if (quizIndex + 1 < cards.length) {
-        startQuiz();
-        makeQuizOptions(quizIndex + 1);
-      } else {
-        startQuiz();
-      }
-    }, 1200);
-
-    incrementMissionProgress('test');
-  }
 
   function startPronunciationAnalysis() {
     const SpeechRecognitionCtor = (window as typeof window & {
@@ -1172,8 +1134,10 @@ export default function UltimateStudyExperience() {
         showToast('カードを追加しました', 'success');
         fetchCards();
         frontInputRef.current?.focus();
+      } else {
+        showToast('カードの追加に失敗しました。', 'error');
       }
-    } catch (e) { showToast('追加に失敗しました。', 'error'); }
+    } catch { showToast('追加に失敗しました。', 'error'); }
   }
 
   function startEditing(card: Card) {
@@ -1186,14 +1150,26 @@ export default function UltimateStudyExperience() {
   }
 
   async function handleUpdateCard(id: number) {
+    if (!user) {
+      showToast('カードを編集するにはログインが必要です。', 'info');
+      return;
+    }
+
+    const front = editFront.trim();
+    const back = editBack.trim();
+    if (!front || !back) {
+      showToast('単語と意味を入力してください。', 'error');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('cards')
         .update({
-          front: editFront.trim(),
-          back: editBack.trim(),
+          front,
+          back,
           example: editExample.trim() || null,
-          category: editCategory.trim(),
+          category: editCategory.trim() || 'General',
           is_public: editIsPublic
         })
         .eq('id', id);
@@ -1201,20 +1177,36 @@ export default function UltimateStudyExperience() {
         setEditingCardId(null);
         showToast('カードを更新しました', 'success');
         fetchCards();
+      } else {
+        showToast('カードの更新に失敗しました。', 'error');
       }
-    } catch (e) { showToast('更新に失敗しました。', 'error'); }
+    } catch { showToast('更新に失敗しました。', 'error'); }
   }
 
   async function handleDeleteCard(id: number) {
+    if (!user) {
+      showToast('カードを削除するにはログインが必要です。', 'info');
+      return;
+    }
+
     if (!confirm('このカードを削除しますか？')) return;
     try {
-      await supabase.from('cards').delete().eq('id', id);
+      const { error } = await supabase.from('cards').delete().eq('id', id);
+      if (error) throw error;
       showToast('カードを削除しました', 'success');
       fetchCards();
-    } catch (e) { showToast('削除に失敗しました。', 'error'); }
+    } catch (error) {
+      console.error('カードの削除に失敗しました:', error);
+      showToast('削除に失敗しました。', 'error');
+    }
   }
 
   async function toggleCardPublic(cardId: number, currentStatus: boolean) {
+    if (!user) {
+      showToast('公開設定を変更するにはログインが必要です。', 'info');
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from('cards')
@@ -1227,18 +1219,15 @@ export default function UltimateStudyExperience() {
       } else {
         showToast('設定の変更に失敗しました。', 'error');
       }
-    } catch (e) {
+    } catch {
       showToast('エラーが発生しました。', 'error');
     }
   }
 
   const uniqueCategories = Array.from(new Set(cards.map(c => c.category || 'General')));
-  const masteredCards = cards.filter(c => (c.interval || 0) > 1).length;
-  const masterRate = cards.length > 0 ? Math.round((masteredCards / cards.length) * 100) : 0;
 
   const isDark = theme === 'dark';
   const bgClass = isDark ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-800';
-  const headerClass = isDark ? 'bg-slate-900/80 border-slate-800/80 shadow-[0_18px_50px_-24px_rgba(15,23,42,0.95)] backdrop-blur-xl' : 'bg-white/80 border-slate-200/80 shadow-[0_18px_50px_-26px_rgba(15,23,42,0.22)] backdrop-blur-xl';
   const cardClass = isDark ? 'bg-slate-900/85 border-slate-700/80 text-slate-100 shadow-[0_24px_60px_-28px_rgba(15,23,42,1)]' : 'bg-white/95 border-slate-200 text-slate-800 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.22)]';
   const inputBgClass = isDark ? 'bg-slate-800 text-white border-slate-700' : 'bg-white text-slate-900 border-slate-200';
   const subContainerClass = isDark ? 'bg-slate-900/85 border-slate-700/80 shadow-[0_24px_60px_-28px_rgba(15,23,42,0.96)] rounded-[28px] ring-1 ring-slate-800/60' : 'bg-white/95 border-slate-200/90 shadow-[0_24px_60px_-30px_rgba(15,23,42,0.2)] rounded-[28px] ring-1 ring-slate-200/80';
@@ -1454,6 +1443,7 @@ export default function UltimateStudyExperience() {
       {activeTab === 'shared' && (
         <SharedTabContent
           user={user}
+          streak={streak}
           sharedCards={sharedCards}
           subContainerClass={subContainerClass}
           cardClass={cardClass}

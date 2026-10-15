@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { authenticateApiRequest } from '../../lib/apiAuth';
 
 const geminiApiKey = process.env.GEMINI_API_KEY;
 const ai = geminiApiKey ? new GoogleGenAI({ apiKey: geminiApiKey }) : null;
@@ -34,6 +35,12 @@ async function generateWithRetry(prompt: string, retries = 2): Promise<string> {
 
 export async function POST(req: Request) {
   try {
+    const auth = await authenticateApiRequest(req);
+    if (!auth.authenticated) {
+      const message = auth.status === 401 ? 'AI機能を使うにはログインが必要です。' : '認証サービスに接続できません。';
+      return NextResponse.json({ error: message }, { status: auth.status });
+    }
+
     if (!geminiApiKey || !ai) {
       return NextResponse.json(
         { error: 'GEMINI_API_KEY が未設定です。プロジェクトルートの .env.local に GEMINI_API_KEY=... を追加してください。' },
@@ -41,11 +48,27 @@ export async function POST(req: Request) {
       );
     }
 
-    // フロント（page.tsx）から「入力テキスト」と「ユーザーの趣味」を受け取る
-    const { text = '', userHobby = '日常会話', subject = '自動判定' } = await req.json();
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return NextResponse.json({ error: 'リクエスト形式が正しくありません。' }, { status: 400 });
+    }
 
-    if (!text.trim()) {
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'リクエスト形式が正しくありません。' }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const text = typeof payload.text === 'string' ? payload.text.trim() : '';
+    const userHobby = typeof payload.userHobby === 'string' ? payload.userHobby.trim().slice(0, 80) : '日常会話';
+    const subject = typeof payload.subject === 'string' ? payload.subject.trim().slice(0, 40) : '自動判定';
+
+    if (!text) {
       return NextResponse.json({ error: 'テキストが空っぽです' }, { status: 400 });
+    }
+    if (text.length > 20000) {
+      return NextResponse.json({ error: '入力テキストは20,000文字以内で入力してください。' }, { status: 413 });
     }
 
     // AIへの命令文（プロンプト）

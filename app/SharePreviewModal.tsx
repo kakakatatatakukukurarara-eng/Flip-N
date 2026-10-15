@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { toPng } from 'html-to-image'; // 軽量で綺麗な画像化ライブラリ
+import { getLocalDateString } from './lib/studyGame';
 
 // Propsの型定義（既存のステートを引き継ぐ）
 interface SharePreviewProps {
@@ -95,7 +96,7 @@ export default function SharePreviewModal({
               {Array.from({ length: 28 }).map((_, i) => {
                 const d = new Date();
                 d.setDate(d.getDate() - (27 - i));
-                const dateStr = d.toISOString().split('T')[0];
+                const dateStr = getLocalDateString(d);
                 const count = studyLogs[dateStr] || 0;
 
                 let bgClass = isDark ? 'bg-slate-800' : 'bg-slate-100';

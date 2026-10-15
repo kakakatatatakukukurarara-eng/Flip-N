@@ -2,14 +2,6 @@
 import React from 'react';
 import type { Card, User } from '../types';
 
-type PresetDeck = {
-  id: string;
-  title: string;
-  description: string;
-  category: string;
-  cards: Array<Pick<Card, 'front' | 'back' | 'example' | 'category'>>;
-};
-
 interface HomeContainerProps {
   user: User | null;
   userHobby: string;

@@ -5,6 +5,7 @@ type SharedCard = Card;
 
 interface SharedTabContentProps {
   user: User | null;
+  streak: number;
   sharedCards: SharedCard[];
   subContainerClass: string;
   cardClass: string;
@@ -14,18 +15,71 @@ interface SharedTabContentProps {
 
 export default function SharedTabContent({
   user,
+  streak,
   sharedCards,
   subContainerClass,
   cardClass,
   isDark,
   handleImportCard,
 }: SharedTabContentProps) {
+  const communityChallenges = [
+    {
+      title: '7日連続学習チャレンジ',
+      description: '毎日1回以上学習して、連続記録を伸ばしましょう。',
+      progress: Math.min(100, Math.round((Math.min(streak, 7) / 7) * 100)),
+      accent: 'from-orange-500 to-amber-400',
+      tag: 'Hot',
+    },
+    {
+      title: '共有カード祭り',
+      description: '公開カードをインポートして、自分の単語帳をもっと充実させる。',
+      progress: Math.min(100, Math.round((Math.min(sharedCards.length, 12) / 12) * 100)),
+      accent: 'from-violet-500 to-purple-500',
+      tag: 'Community',
+    },
+    {
+      title: 'マスター達成月間',
+      description: '習得率80%を超えると、ランキングに載ります。',
+      progress: Math.min(100, Math.round((Math.min(streak * 10, 80) / 80) * 100)),
+      accent: 'from-emerald-500 to-teal-500',
+      tag: 'Rank',
+    },
+  ];
+
   return (
     <main className="flex-grow min-w-0 p-4 sm:p-6 max-w-4xl w-full mx-auto space-y-4 relative z-10">
       <div className="px-1">
         <h3 className="text-sm font-black tracking-tight">🌐 全体公開フレーズマーケット</h3>
         <p className="text-[11px] text-slate-400 mt-0.5">世界中のFLIP-Nユーザーが全体公開している有益な単語やフレーズを、自分の単語帳へワンタップでインポートできます。</p>
       </div>
+
+      <section className={`rounded-[28px] border p-4 ${subContainerClass}`}>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <p className="text-[9px] font-mono font-bold tracking-[0.2em] uppercase text-violet-500">Community challenge</p>
+            <h4 className="mt-1 text-lg font-black tracking-tight">みんなで伸ばす学習ランキング</h4>
+          </div>
+          <span className="rounded-full border border-violet-500/20 bg-violet-500/10 px-2 py-1 text-[9px] font-mono font-bold text-violet-400">
+            LIVE
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {communityChallenges.map((challenge) => (
+            <div key={challenge.title} className={`p-3 rounded-2xl border ${isDark ? 'bg-slate-900/80 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[8px] font-mono font-bold uppercase tracking-[0.2em] text-violet-500">{challenge.tag}</span>
+                <span className="text-[9px] font-mono font-bold text-slate-500">{challenge.progress}%</span>
+              </div>
+              <h5 className="mt-3 text-sm font-black tracking-tight">{challenge.title}</h5>
+              <p className="mt-1 text-[10px] text-slate-400 leading-relaxed">{challenge.description}</p>
+              <div className="mt-3 h-2 rounded-full bg-slate-200/70 overflow-hidden">
+                <div className={`h-full rounded-full bg-gradient-to-r ${challenge.accent}`} style={{ width: `${challenge.progress}%` }} />
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
 
       {!user ? (
         <div className={`w-full p-8 text-center rounded-2xl border font-mono text-[11px] tracking-wide font-bold shadow-sm ${subContainerClass}`}>

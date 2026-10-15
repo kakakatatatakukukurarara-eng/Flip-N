@@ -1,5 +1,5 @@
 // src/hooks/useProfile.ts
-import { useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { User, SupabaseClientMinimal, ShowToastFn } from '../types';
 
 const normalizeDailyGoal = (value: number) => {
@@ -15,42 +15,9 @@ export function useProfile(user: User | null, supabase: SupabaseClientMinimal, s
   const [userHobby, setUserHobby] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
 
-  const setDailyGoal = (value: number) => {
+  const setDailyGoal = useCallback((value: number) => {
     setDailyGoalState(normalizeDailyGoal(value));
-  };
-
-  useEffect(() => {
-    async function fetchProfile() {
-      if (!user?.id) return;
-      try {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('display_name, user_hobby, daily_goal, avatar_url')
-          .eq('id', user.id)
-          .single();
-
-        if (error) throw error;
-        if (data) {
-          const profile = data as {
-            display_name?: string;
-            user_hobby?: string;
-            daily_goal?: number;
-            avatar_url?: string;
-          };
-
-          if (profile.display_name) setEditDisplayName(profile.display_name);
-          if (profile.user_hobby) setUserHobby(profile.user_hobby);
-          if (profile.daily_goal !== undefined && profile.daily_goal !== null) setDailyGoal(profile.daily_goal);
-          if (profile.avatar_url) setAvatarUrl(profile.avatar_url);
-        }
-      } catch (err) {
-        if (process.env.NODE_ENV === 'development') console.error('プロフィール情報の取得に失敗:', err);
-        showToast('プロフィールの取得に失敗しました。', 'error');
-      }
-    }
-
-    void fetchProfile();
-  }, [user?.id, showToast, supabase]);
+  }, []);
 
   const handleSaveProfile = async (setUser: (u: User | null) => void) => {
     if (!user) return;

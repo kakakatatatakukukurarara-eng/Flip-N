@@ -38,6 +38,23 @@ export function calculateStudyStreak(streak: number, lastStudyDate: string, toda
   return 1;
 }
 
+export function buildQuizChoices(answers: string[], correctAnswer: string, maxChoices = 4) {
+  const distractors = Array.from(new Set(answers)).filter((answer) => answer !== correctAnswer);
+
+  for (let index = distractors.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [distractors[index], distractors[randomIndex]] = [distractors[randomIndex], distractors[index]];
+  }
+
+  const choices = [correctAnswer, ...distractors.slice(0, Math.max(0, maxChoices - 1))];
+  for (let index = choices.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [choices[index], choices[randomIndex]] = [choices[randomIndex], choices[index]];
+  }
+
+  return choices;
+}
+
 export function createInitialDailyMissions() {
   return {
     studyCount: 0,

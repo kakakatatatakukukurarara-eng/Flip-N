@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import type { SupabaseClientMinimal } from '../types';
 import {
   buildStudyLogsMap,
@@ -30,6 +30,9 @@ export function useStudyProgress(
   const [lastStudyDate, setLastStudyDate] = useState('');
   const [dailyMissions, setDailyMissions] = useState(createInitialDailyMissions());
   const [studyLogs, setStudyLogs] = useState<Record<string, number>>({});
+  const studyLogCountsRef = useRef<Record<string, number>>({});
+  const studyLogOwnerRef = useRef<string | null>(null);
+  const studyLogWriteQueueRef = useRef(Promise.resolve());
 
   const incrementMissionProgress = (type: MissionType) => {
     setDailyMissions((prev) => {
@@ -88,7 +91,9 @@ export function useStudyProgress(
       const localLogs = JSON.parse(localStorage.getItem('study_logs_local') || '{}');
       localLogs[todayStr] = (localLogs[todayStr] || 0) + 1;
       localStorage.setItem('study_logs_local', JSON.stringify(localLogs));
-      setStudyLogs(buildStudyLogsMap(localLogs));
+      studyLogOwnerRef.current = null;
+      studyLogCountsRef.current = buildStudyLogsMap(localLogs);
+      setStudyLogs(studyLogCountsRef.current);
       if (lastStudyDate !== todayStr) {
         const nextStreak = calculateStudyStreak(streak, lastStudyDate, todayStr);
         localStorage.setItem('streak_count', String(nextStreak));
@@ -118,10 +123,16 @@ export function useStudyProgress(
       }
     }
 
-    try {
-      const currentCount = studyLogs[todayStr] || 0;
-      const newCount = currentCount + 1;
+    if (studyLogOwnerRef.current !== user.id) {
+      studyLogOwnerRef.current = user.id;
+      studyLogCountsRef.current = {};
+    }
 
+    const newCount = (studyLogCountsRef.current[todayStr] ?? studyLogs[todayStr] ?? 0) + 1;
+    studyLogCountsRef.current[todayStr] = newCount;
+    setStudyLogs((prev) => ({ ...prev, [todayStr]: newCount }));
+
+    const write = studyLogWriteQueueRef.current.catch(() => undefined).then(async () => {
       const { error } = await supabase
         .from('study_logs')
         .upsert(
@@ -129,9 +140,12 @@ export function useStudyProgress(
           { onConflict: 'user_id,study_date' }
         );
 
-      if (!error) {
-        setStudyLogs((prev) => ({ ...prev, [todayStr]: newCount }));
-      }
+      if (error) throw error;
+    });
+    studyLogWriteQueueRef.current = write;
+
+    try {
+      await write;
     } catch (e) {
       console.error('Failed to record study log:', e);
     }
@@ -145,8 +159,16 @@ export function useStudyProgress(
       }
 
       const localLogs = JSON.parse(localStorage.getItem('study_logs_local') || '{}');
-      setStudyLogs(buildStudyLogsMap(localLogs));
+      studyLogOwnerRef.current = null;
+      studyLogCountsRef.current = buildStudyLogsMap(localLogs);
+      setStudyLogs(studyLogCountsRef.current);
       return;
+    }
+
+    if (studyLogOwnerRef.current !== currentUser.id) {
+      studyLogOwnerRef.current = currentUser.id;
+      studyLogCountsRef.current = {};
+      setStudyLogs({});
     }
 
     try {
@@ -160,7 +182,13 @@ export function useStudyProgress(
         data.forEach((log: StudyLogRecord) => {
           logsMap[log.study_date] = log.card_count;
         });
-        setStudyLogs(buildStudyLogsMap(logsMap));
+        if (studyLogOwnerRef.current === currentUser.id) {
+          for (const [date, count] of Object.entries(studyLogCountsRef.current)) {
+            logsMap[date] = Math.max(logsMap[date] || 0, count);
+          }
+          studyLogCountsRef.current = buildStudyLogsMap(logsMap);
+          setStudyLogs(studyLogCountsRef.current);
+        }
       }
     } catch (e) {
       console.error('Failed to fetch study logs:', e);

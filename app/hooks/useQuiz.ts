@@ -1,6 +1,7 @@
 // src/hooks/useQuiz.ts
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Card } from '../types';
+import { buildQuizChoices } from '../lib/studyGame';
 
 export function useQuiz(
   cards: Card[],
@@ -24,29 +25,22 @@ export function useQuiz(
 
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const timerRef = useRef<number | null>(null);
+  const advanceTimeoutRef = useRef<number | null>(null);
 
   const setupQuestion = useCallback((index: number) => {
     if (!cards || cards.length < 4 || index >= cards.length) return;
     const currentCard = cards[index];
 
-    const options = [currentCard.back];
-    while (options.length < 4) {
-      const randomCard = cards[Math.floor(Math.random() * cards.length)];
-      if (!options.includes(randomCard.back)) {
-        options.push(randomCard.back);
-      }
-    }
-    setQuizOptions(options.sort(() => Math.random() - 0.5));
+    const options = buildQuizChoices(cards.map((card) => card.back), currentCard.back);
+    setQuizOptions(options);
 
-    const isCorrectOption = Math.random() > 0.5;
+    const wrongAnswers = Array.from(new Set(cards.map((card) => card.back)))
+      .filter((answer) => answer !== currentCard.back);
+    const isCorrectOption = wrongAnswers.length === 0 || Math.random() > 0.5;
     if (isCorrectOption) {
       setBooleanCurrentDisplay({ text: currentCard.back, isCorrectOption: true });
     } else {
-      let dummyText = currentCard.back;
-      while (dummyText === currentCard.back) {
-        const randomCard = cards[Math.floor(Math.random() * cards.length)];
-        dummyText = randomCard.back;
-      }
+      const dummyText = wrongAnswers[Math.floor(Math.random() * wrongAnswers.length)];
       setBooleanCurrentDisplay({ text: dummyText, isCorrectOption: false });
     }
   }, [cards]);
@@ -56,16 +50,28 @@ export function useQuiz(
     setTypingAnswer('');
     setIsTypingCorrect(null);
     setBooleanSelected(null);
-    setQuizIndex((prev) => {
-      const next = prev + 1;
-      if (next < cards.length) {
-        setupQuestion(next);
-      }
-      return next;
-    });
-  }, [cards.length, setupQuestion]);
+    const next = quizIndex + 1;
+    if (next < cards.length) setupQuestion(next);
+    setQuizIndex(next);
+  }, [cards.length, quizIndex, setupQuestion]);
+
+  const clearAdvanceTimeout = useCallback(() => {
+    if (advanceTimeoutRef.current !== null) {
+      window.clearTimeout(advanceTimeoutRef.current);
+      advanceTimeoutRef.current = null;
+    }
+  }, []);
+
+  const scheduleMoveNext = useCallback((delay: number) => {
+    clearAdvanceTimeout();
+    advanceTimeoutRef.current = window.setTimeout(() => {
+      advanceTimeoutRef.current = null;
+      moveNext();
+    }, delay);
+  }, [clearAdvanceTimeout, moveNext]);
 
   const startQuiz = useCallback(() => {
+    clearAdvanceTimeout();
     setQuizIndex(0);
     setQuizScore(0);
     setQuizSelected(null);
@@ -73,27 +79,25 @@ export function useQuiz(
     setIsTypingCorrect(null);
     setBooleanSelected(null);
     setupQuestion(0);
-  }, [setupQuestion]);
+  }, [clearAdvanceTimeout, setupQuestion]);
 
   const handleTimeOut = useCallback(() => {
     speak('Time out');
     if (quizMode === 'choice4') {
       setQuizSelected('__TIMEOUT__');
-      setTimeout(() => {
-        moveNext();
-      }, 1500);
+      scheduleMoveNext(1500);
     } else if (quizMode === 'typing') {
       setIsTypingCorrect(false);
-      setTimeout(() => {
-        moveNext();
-      }, 1500);
+      scheduleMoveNext(1500);
     } else if (quizMode === 'boolean') {
-      setBooleanSelected('yes');
-      setTimeout(() => {
-        moveNext();
-      }, 1500);
+      setBooleanSelected(booleanCurrentDisplay.isCorrectOption ? 'no' : 'yes');
+      scheduleMoveNext(1500);
     }
-  }, [moveNext, quizMode, speak]);
+  }, [booleanCurrentDisplay.isCorrectOption, quizMode, scheduleMoveNext, speak]);
+
+  useEffect(() => () => {
+    if (advanceTimeoutRef.current !== null) window.clearTimeout(advanceTimeoutRef.current);
+  }, []);
 
   useEffect(() => {
     if (quizIndex >= cards.length || quizSelected !== null || isTypingCorrect !== null || booleanSelected !== null) {
@@ -148,9 +152,7 @@ export function useQuiz(
     } else {
       speak('Wrong');
     }
-    setTimeout(() => {
-      moveNext();
-    }, 1500);
+    scheduleMoveNext(1500);
   };
 
   const handleTypingSubmit = (answer: string) => {
@@ -168,9 +170,7 @@ export function useQuiz(
       speak('Wrong');
     }
 
-    setTimeout(() => {
-      moveNext();
-    }, 1800);
+    scheduleMoveNext(1800);
   };
 
   const handleBooleanAnswer = (userChoice: 'yes' | 'no') => {
@@ -187,9 +187,7 @@ export function useQuiz(
       speak('Wrong');
     }
 
-    setTimeout(() => {
-      moveNext();
-    }, 1500);
+    scheduleMoveNext(1500);
   };
 
   return {

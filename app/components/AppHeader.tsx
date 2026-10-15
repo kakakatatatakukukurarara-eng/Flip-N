@@ -128,6 +128,7 @@ export default function AppHeader({
                 className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-800 shadow-sm hover:scale-105 transition-all"
               >
                 {avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={avatarUrl} alt="User Avatar" className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
@@ -144,6 +145,7 @@ export default function AppHeader({
                   <div className={`p-4 flex items-center gap-3 border-b ${isDark ? 'border-slate-800/60 bg-slate-950/40' : 'border-slate-50 bg-slate-50/60'}`}>
                     <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 flex-shrink-0">
                       {avatarUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-tr from-violet-500 to-purple-500 flex items-center justify-center text-white font-bold">

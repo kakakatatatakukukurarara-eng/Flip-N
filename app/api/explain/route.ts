@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
+import { authenticateApiRequest } from '../../lib/apiAuth';
 
 const apiKey = process.env.GEMINI_API_KEY;
 const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
@@ -43,17 +44,35 @@ interface Explanation {
 
 export async function POST(request: Request) {
   try {
+    const auth = await authenticateApiRequest(request);
+    if (!auth.authenticated) {
+      const message = auth.status === 401 ? 'AI機能を使うにはログインが必要です。' : '認証サービスに接続できません。';
+      return NextResponse.json({ error: message }, { status: auth.status });
+    }
+
     if (!ai) return NextResponse.json({ error: 'GEMINI_API_KEY が未設定です。' }, { status: 500 });
 
-    const body = await request.json() as { front?: unknown; back?: unknown; example?: unknown; hobby?: unknown; subject?: unknown };
-    const front = typeof body.front === 'string' ? body.front.trim() : '';
-    const back = typeof body.back === 'string' ? body.back.trim() : '';
-    const example = typeof body.example === 'string' ? body.example.trim() : '';
-    const hobby = typeof body.hobby === 'string' ? body.hobby.trim().slice(0, 80) : '日常会話';
-    const subject = typeof body.subject === 'string' ? body.subject.trim().slice(0, 40) : '自動判定';
+    let body: unknown;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'リクエスト形式が正しくありません。' }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object' || Array.isArray(body)) {
+      return NextResponse.json({ error: 'リクエスト形式が正しくありません。' }, { status: 400 });
+    }
+
+    const payload = body as Record<string, unknown>;
+    const front = typeof payload.front === 'string' ? payload.front.trim() : '';
+    const back = typeof payload.back === 'string' ? payload.back.trim() : '';
+    const example = typeof payload.example === 'string' ? payload.example.trim() : '';
+    const hobby = typeof payload.hobby === 'string' ? payload.hobby.trim().slice(0, 80) : '日常会話';
+    const subject = typeof payload.subject === 'string' ? payload.subject.trim().slice(0, 40) : '自動判定';
 
     if (!front || !back) return NextResponse.json({ error: '単語と意味が必要です。' }, { status: 400 });
     if (front.length > 200 || back.length > 300) return NextResponse.json({ error: 'カードの内容が長すぎます。' }, { status: 400 });
+    if (example.length > 1000) return NextResponse.json({ error: '例文が長すぎます。' }, { status: 400 });
 
     const prompt = `あなたは日本人向けの優秀な学習講師です。入力された言語と分野を自動判定し、次のカードを深掘りしてください。
   分野: ${subject}

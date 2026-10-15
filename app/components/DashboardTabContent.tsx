@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import type { Card } from '../types';
+import { getLocalDateString } from '../lib/studyGame';
 
 interface DashboardTabContentProps {
   cards: Card[];
@@ -38,7 +39,7 @@ export default function DashboardTabContent({
   const weeklyActivity = Array.from({ length: 7 }, (_, index) => {
     const date = new Date();
     date.setDate(date.getDate() - (6 - index));
-    const dateKey = date.toISOString().split('T')[0];
+    const dateKey = getLocalDateString(date);
     return {
       day: date.toLocaleDateString('ja-JP', { weekday: 'short' }),
       count: studyLogs[dateKey] || 0,
@@ -165,7 +166,7 @@ export default function DashboardTabContent({
           {Array.from({ length: 84 }).map((_, i) => {
             const d = new Date();
             d.setDate(d.getDate() - (83 - i));
-            const dateStr = d.toISOString().split('T')[0];
+            const dateStr = getLocalDateString(d);
             const count = studyLogs[dateStr] || 0;
 
             let bgClass = theme === 'dark' ? 'bg-zinc-800/60' : 'bg-zinc-100';

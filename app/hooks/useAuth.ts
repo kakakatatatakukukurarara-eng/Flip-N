@@ -34,14 +34,13 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
         if (!auth) return;
 
         const trimmedEmail = email.trim();
-        const trimmedPassword = password.trim();
 
-        if (!trimmedEmail || !trimmedPassword) {
+        if (!trimmedEmail || !password) {
             showToast('メールアドレスとパスワードを入力してください。', 'error');
             return;
         }
 
-        if (trimmedPassword.length < 6) {
+        if (password.length < 6) {
             showToast('パスワードは6文字以上で入力してください。', 'error');
             return;
         }
@@ -50,7 +49,7 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
             if (authMode === 'signup') {
                 const { error } = await auth.signUp({
                     email: trimmedEmail,
-                    password: trimmedPassword,
+                    password,
                     options: {
                         emailRedirectTo: getAuthRedirectUrl(),
                     }
@@ -65,7 +64,7 @@ export function useAuth(supabase: SupabaseClientMinimal, showToast: ShowToastFn)
             } else {
                 const { error } = await auth.signInWithPassword({
                     email: trimmedEmail,
-                    password: trimmedPassword,
+                    password,
                 });
 
                 if (error) {

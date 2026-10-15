@@ -20,6 +20,7 @@ type DeckSharingUser = {
 export function useDeckSharing<T extends DeckCard>(
   user: DeckSharingUser | null,
   supabase: SupabaseClientMinimal,
+  currentDeckId: string | null,
   cards: T[],
   setCards: React.Dispatch<React.SetStateAction<T[]>>,
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void,
@@ -112,26 +113,47 @@ export function useDeckSharing<T extends DeckCard>(
       );
 
       if (confirmImport) {
-        const importedCards: T[] = sharedCards.map((c: DeckCard) => ({
-          ...(c as Partial<T>),
-          id: Date.now() + Math.floor(Math.random() * 1000),
+        const cardValues = sharedCards.map((c: DeckCard) => ({
           front: c.front,
           back: c.back,
           example: c.example,
           category: c.category || 'Shared',
+          user_id: user?.id,
+          deck_id: currentDeckId,
           interval: 1,
           efactor: 2.5,
           repetition: 0,
           is_public: false,
           next_review_at: new Date().toISOString(),
-        }) as T);
+        }));
 
-        setCards((prev) => [...prev, ...importedCards]);
+        if (user) {
+          const { data: importedCards, error } = await supabase
+            .from('cards')
+            .insert(cardValues)
+            .select('*');
+
+          if (error) throw error;
+          if (!importedCards) throw new Error('インポートしたカードを読み込めませんでした');
+
+          setCards((prev) => {
+            const knownIds = new Set(prev.map((card) => card.id));
+            return [...prev, ...(importedCards as T[]).filter((card) => !knownIds.has(card.id))];
+          });
+        } else {
+          const baseId = Math.max(Date.now(), ...cards.map((card) => card.id + 1));
+          const importedCards = cardValues.map((card, index) => ({ ...card, id: baseId + index }) as unknown as T);
+          const storedCards = JSON.parse(localStorage.getItem('guest_shared_cards') || '[]') as T[];
+          localStorage.setItem('guest_shared_cards', JSON.stringify([...storedCards, ...importedCards]));
+          setCards((prev) => [...prev, ...importedCards]);
+        }
+
         showToast(`${deck.title} のインポートが完了しました！`, 'success');
-        window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (err) {
       console.error('インポートエラー:', err);
+      const message = err instanceof Error ? err.message : '共有デッキのインポートに失敗しました。';
+      showToast(message, 'error');
     }
   };
 

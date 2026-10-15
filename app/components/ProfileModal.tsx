@@ -39,6 +39,7 @@ export default function ProfileModal({
           <div className="mb-5 flex flex-col items-center gap-3">
             <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-purple-500 shadow-md bg-slate-100 relative group">
               {avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img src={avatarUrl} alt="Preview" className="w-full h-full object-cover" />
               ) : (
                 <div className="w-full h-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-400 text-xs">
