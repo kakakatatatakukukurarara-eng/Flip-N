@@ -27,6 +27,8 @@ interface StudyContainerProps {
     isRecording: boolean;
     pronunciationScore: number | null;
     handleResponse: (quality: number) => void;
+    isStudyPlan: boolean;
+    clearStudyPlan: () => void;
 }
 
 export default function StudyContainer({
@@ -53,6 +55,8 @@ export default function StudyContainer({
     isRecording,
     pronunciationScore,
     handleResponse,
+    isStudyPlan,
+    clearStudyPlan,
 }: StudyContainerProps) {    return (
         <main className="flex-grow min-w-0 flex flex-col items-center justify-center p-3 sm:p-6 max-w-lg w-full mx-auto relative z-10">
 
@@ -79,6 +83,18 @@ export default function StudyContainer({
                     </svg>
                 </div>
             </div>
+
+            {isStudyPlan && (
+                <div className={`w-full mb-3 px-3 py-2 rounded-xl border flex items-center justify-between gap-3 text-[10px] font-mono ${subContainerClass}`}>
+                    <span className="font-bold text-cyan-500">今日の学習プランを実行中</span>
+                    <button
+                        onClick={clearStudyPlan}
+                        className="shrink-0 underline underline-offset-2 text-slate-500 hover:text-blue-500"
+                    >
+                        通常の学習に戻る
+                    </button>
+                </div>
+            )}
 
             {displayCards.length === 0 ? (
                 <div className={`w-full p-12 text-center rounded-2xl border font-mono text-[11px] tracking-widest font-bold ${subContainerClass}`}>

@@ -427,6 +427,7 @@ export default function UltimateStudyExperience() {
   const [newIsPublic, setNewIsPublic] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [studyPlanCardIds, setStudyPlanCardIds] = useState<number[] | null>(null);
 
   const frontInputRef = useRef<HTMLInputElement>(null);
 
@@ -570,13 +571,21 @@ export default function UltimateStudyExperience() {
     };
   }, []);
 
-  useEffect(() => {
-    void fetchMyDecks(user);
+  const refreshUserDecksAndSharedCards = useEffectEvent((currentUser: PageUser | null) => {
+    void fetchMyDecks(currentUser);
     void fetchSharedCards();
+  });
+
+  const refreshCurrentCards = useEffectEvent(() => {
+    void fetchCards();
+  });
+
+  useEffect(() => {
+    refreshUserDecksAndSharedCards(user);
   }, [user]);
 
   useEffect(() => {
-    void fetchCards();
+    refreshCurrentCards();
   }, [user, currentDeckId]);
 
   const deckProgress: DeckProgress[] = [
@@ -979,10 +988,14 @@ export default function UltimateStudyExperience() {
   }
 
   // ⭕ ユーザー（ログイン状態）が変わるたびにストリークを同期
+  const syncProgressForCurrentUser = useEffectEvent((currentUser: PageUser | null) => {
+    void syncStreak(currentUser);
+    void fetchStudyLogs(currentUser);
+  });
+
   useEffect(() => {
-    syncStreak(user);
-    fetchStudyLogs(user);
-  }, [fetchStudyLogs, syncStreak, user]);
+    syncProgressForCurrentUser(user);
+  }, [user]);
 
 
 
@@ -1002,7 +1015,8 @@ export default function UltimateStudyExperience() {
         const matchesCategory = selectedCategory === 'All' || card.category === selectedCategory;
         const matchesSearch = card.front.toLowerCase().includes(searchQuery.toLowerCase()) ||
           card.back.toLowerCase().includes(searchQuery.toLowerCase());
-        return matchesCategory && matchesSearch;
+        const matchesStudyPlan = studyPlanCardIds === null || studyPlanCardIds.includes(card.id);
+        return matchesCategory && matchesSearch && matchesStudyPlan;
       })
       .sort((a, b) => {
         const aDue = !a.next_review_at || new Date(a.next_review_at).getTime() <= now ? 0 : 1;
@@ -1016,7 +1030,23 @@ export default function UltimateStudyExperience() {
         if (aWeakness !== bWeakness) return aWeakness - bWeakness;
         return (a.front || '').localeCompare(b.front || '');
       });
-  }, [cards, selectedCategory, searchQuery]);
+  }, [cards, selectedCategory, searchQuery, studyPlanCardIds]);
+
+  function startLearningPlan(cardIds: number[]) {
+    if (cardIds.length === 0) return;
+    setStudyPlanCardIds(cardIds);
+    setSelectedCategory('All');
+    setSearchQuery('');
+    setCurrentIndex(0);
+    setIsFlipped(false);
+    setActiveTab('study');
+  }
+
+  function clearStudyPlan() {
+    setStudyPlanCardIds(null);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  }
 
   const handleStudyShortcut = useEffectEvent((quality: number) => {
     handleResponse(quality);
@@ -1053,8 +1083,10 @@ export default function UltimateStudyExperience() {
     }
   }
 
+  const restartQuizForCurrentCards = useEffectEvent(() => startQuiz());
+
   useEffect(() => {
-    if (activeTab === 'test') startQuiz();
+    if (activeTab === 'test') restartQuizForCurrentCards();
   }, [activeTab, cards]);
 
   function startPronunciationAnalysis() {
@@ -1307,6 +1339,7 @@ export default function UltimateStudyExperience() {
           innerBoxClass={innerBoxClass}
           setActiveTab={setActiveTab}
           setSelectedCategory={setSelectedCategory}
+          startLearningPlan={startLearningPlan}
           quickQuizCard={quickQuizCard}
           quickQuizStatus={quickQuizStatus}
           quickQuizOptions={quickQuizOptions}
@@ -1346,6 +1379,8 @@ export default function UltimateStudyExperience() {
           isRecording={isRecording}
           pronunciationScore={pronunciationScore}
           handleResponse={handleResponse}
+          isStudyPlan={studyPlanCardIds !== null}
+          clearStudyPlan={clearStudyPlan}
         />
       )}
 
@@ -1443,12 +1478,13 @@ export default function UltimateStudyExperience() {
       {activeTab === 'shared' && (
         <SharedTabContent
           user={user}
-          streak={streak}
           sharedCards={sharedCards}
+          studyLogs={studyLogs}
           subContainerClass={subContainerClass}
           cardClass={cardClass}
           isDark={isDark}
           handleImportCard={handleImportCard}
+          setActiveTab={setActiveTab}
         />
       )}
 

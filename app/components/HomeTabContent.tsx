@@ -26,6 +26,7 @@ interface HomeTabContentProps {
   innerBoxClass: string;
   setActiveTab: (tab: 'home' | 'study' | 'test' | 'manage' | 'shared' | 'dashboard') => void;
   setSelectedCategory: (value: string) => void;
+  startLearningPlan: (cardIds: number[]) => void;
   quickQuizCard: Card | null;
   quickQuizStatus: 'idle' | 'correct' | 'wrong';
   quickQuizOptions: string[];
@@ -51,6 +52,7 @@ export default function HomeTabContent({
   innerBoxClass,
   setActiveTab,
   setSelectedCategory,
+  startLearningPlan,
   quickQuizCard,
   quickQuizStatus,
   quickQuizOptions,
@@ -78,36 +80,22 @@ export default function HomeTabContent({
   ];
   const routineProgress = Math.round((routineTasks.filter((task) => task.done).length / routineTasks.length) * 100);
   const reviewCards = cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0);
-  const masteredCards = cards.filter((card) => (card.interval ?? 1) > 1).length;
-
-  const learningPlan = React.useMemo(() => {
-    const planSteps = [
-      {
-        title: 'Warm-up',
-        detail: reviewCards.length > 0 ? `${reviewCards.length}枚の苦手カードを先に確認` : '今日の復習対象はほぼクリアです',
-      },
-      {
-        title: 'Core drill',
-        detail: dailyGoal > 0 ? `${Math.max(1, Math.min(10, Math.round(dailyGoal / 2)))}問を集中して解いて記憶を定着させる` : 'カードを3〜5枚で復習の流れを作る',
-      },
-      {
-        title: 'Confidence boost',
-        detail: `得意分野の定着率 ${Math.min(100, Math.max(0, Math.round((masteredCards / Math.max(cards.length, 1)) * 100)))}% を維持して次の学習へ進む`,
-      },
-    ];
-
-    return {
-      title: userHobby ? `${userHobby}テーマの学習プラン` : 'AI学習プラン',
-      summary: reviewCards.length > 0 ? '今の状態は「再確認が必要なカード」が多いので、短時間で確実に定着させる設計です。' : '習得が安定しているので、次の目標は「学習量を少しずつ増やす」ことです。',
-      duration: `${Math.max(12, Math.min(30, 8 + reviewCards.length + Math.round(streak / 2)))}分`,
-      steps: planSteps,
-    };
-  }, [cards.length, dailyGoal, masteredCards, reviewCards.length, streak, userHobby]);
+  const planTarget = Math.max(1, Math.min(20, dailyGoal || 10));
+  const plannedReviewCards = reviewCards.slice(0, planTarget);
+  const plannedCardIds = new Set(plannedReviewCards.map((card) => card.id));
+  const plannedCards = [
+    ...plannedReviewCards,
+    ...cards
+      .filter((card) => !plannedCardIds.has(card.id))
+      .sort((a, b) => (a.interval ?? 1) - (b.interval ?? 1) || (a.repetition ?? 0) - (b.repetition ?? 0))
+      .slice(0, Math.max(0, planTarget - plannedReviewCards.length)),
+  ];
+  const planMinutes = Math.max(2, Math.ceil(plannedCards.length * 0.75));
 
   return (
     <main className="flex-grow min-w-0 flex flex-col p-4 sm:p-6 lg:p-8 max-w-5xl w-full mx-auto relative z-10 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <section className="py-2">
-        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 text-[9px] font-mono font-bold tracking-[0.24em] text-blue-500 uppercase">Premium study flow</div>
+        <div className="inline-flex items-center gap-2 rounded-full border border-blue-500/20 bg-blue-500/5 px-2.5 py-1 text-[9px] font-mono font-bold tracking-[0.16em] text-blue-500">今日の学習</div>
         <h2 className="mt-4 text-3xl sm:text-4xl font-black tracking-[-0.06em] leading-none bg-gradient-to-r from-slate-900 via-slate-700 to-blue-600 bg-clip-text text-transparent dark:from-slate-100 dark:via-slate-200 dark:to-blue-400">
           おかえりなさい、{user?.displayName || 'ゲスト'}さん
         </h2>
@@ -118,26 +106,26 @@ export default function HomeTabContent({
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className={`p-5 rounded-[28px] border flex flex-col justify-between h-36 bg-gradient-to-br from-orange-50 via-white to-amber-50/80 ${subContainerClass}`}>
-          <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> STREAK RECORD
+          <div className="flex items-center gap-2 text-[10px] font-bold tracking-wider text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> 連続学習
           </div>
           <div className="flex items-end gap-1.5 my-2">
             <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-orange-500 to-amber-500 bg-clip-text text-transparent">{streak}</span>
-            <span className="text-xs font-bold text-slate-400 pb-1">Days Continuous</span>
+            <span className="text-xs font-bold text-slate-500 pb-1">日連続</span>
           </div>
-          <p className="text-[9px] font-mono text-slate-500">Keep up the great rhythm!</p>
+          <p className="text-[9px] text-slate-500">今日も少しずつ続けましょう</p>
         </div>
 
         <div className={`p-5 rounded-[28px] border flex flex-col justify-between h-36 bg-gradient-to-br from-emerald-50 via-white to-teal-50/80 ${subContainerClass}`}>
-          <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-slate-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> TODAY&apos;S GOAL PROGRESS
+          <div className="flex items-center gap-2 text-[10px] font-bold tracking-wider text-slate-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> 今日の目標
           </div>
           <div className="flex justify-between items-end my-1">
             <span className="text-4xl sm:text-5xl font-black bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">
               {progressPercent}%
             </span>
             <span className="text-[10px] font-mono text-slate-500 font-bold">
-              {dailyMissions.studyCount} / {dailyGoal} WORDS
+              {dailyMissions.studyCount} / {dailyGoal} 枚
             </span>
           </div>
           <div className={`w-full h-2 rounded-full overflow-hidden border border-transparent ${innerBoxClass}`}>
@@ -149,88 +137,94 @@ export default function HomeTabContent({
         </div>
       </div>
 
-      <div className={`p-5 rounded-[28px] border ${subContainerClass}`}>
+      <section className={`overflow-hidden rounded-[28px] border bg-gradient-to-br from-cyan-500/[0.08] via-transparent to-emerald-500/[0.05] ${subContainerClass}`}>
+        <div className="p-5 sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400">今日のおすすめ</p>
+            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-700 dark:text-cyan-300">約{planMinutes}分</span>
+          </div>
+          <h3 className="mt-2 text-xl sm:text-2xl font-black tracking-tight text-slate-800 dark:text-slate-100">
+            {plannedCards.length > 0 ? '復習カードから始めましょう' : '学習カードを追加しましょう'}
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+            {plannedCards.length > 0
+              ? `復習が必要な${plannedReviewCards.length}枚を先に、その後に習得度の低いカードを学習します。`
+              : 'カードを追加すると、今日の学習プランをここに表示します。'}
+          </p>
+
+          <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+            <button
+              onClick={() => plannedCards.length > 0 ? startLearningPlan(plannedCards.map((card) => card.id)) : setActiveTab('manage')}
+              className="min-h-12 rounded-xl bg-cyan-700 px-5 text-sm font-bold text-white shadow-sm transition hover:bg-cyan-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-500"
+            >
+              {plannedCards.length > 0 ? `${plannedCards.length}枚の学習を始める` : 'カードを追加する'}
+            </button>
+            {plannedCards.length > 0 && <span className="text-xs text-slate-500">今日の目標 {plannedCards.length} / {dailyGoal} 枚</span>}
+          </div>
+        </div>
+        {plannedCards.length > 0 && (
+          <div className="grid grid-cols-2 border-t border-slate-200/70 dark:border-slate-700/70">
+            <div className="px-5 py-3 sm:px-6">
+              <p className="text-xs text-slate-500">復習待ち</p>
+              <p className="mt-1 text-lg font-black text-slate-800 dark:text-slate-100">{plannedReviewCards.length}<span className="ml-1 text-xs font-medium text-slate-500">枚</span></p>
+            </div>
+            <div className="border-l border-slate-200/70 px-5 py-3 dark:border-slate-700/70 sm:px-6">
+              <p className="text-xs text-slate-500">今日の学習カード</p>
+              <p className="mt-1 text-lg font-black text-slate-800 dark:text-slate-100">{plannedCards.length}<span className="ml-1 text-xs font-medium text-slate-500">枚</span></p>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className={`rounded-[28px] border p-5 ${subContainerClass}`}>
         <div className="flex items-center justify-between gap-3 mb-4">
           <div>
-            <p className="text-[9px] font-mono font-bold tracking-[0.24em] uppercase text-blue-500">Daily mini habit</p>
-
-        <section className={`rounded-[28px] border p-5 bg-gradient-to-br from-cyan-500/[0.06] via-transparent to-violet-500/[0.06] ${subContainerClass}`}>
-          <div className="flex items-center justify-between gap-3 mb-4">
-            <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-[0.2em] text-cyan-500 uppercase">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" /> AI STUDY PLAN
-            </div>
-            <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-[9px] font-mono font-bold text-cyan-400">
-              {learningPlan.duration}
-            </span>
+            <p className="text-xs font-bold text-blue-500">毎日のミッション</p>
+            <h3 className="mt-1 text-xl font-black tracking-tight">今日のルーティン</h3>
           </div>
-
-          <div className="flex flex-col lg:flex-row gap-4 lg:items-start">
-            <div className="flex-1">
-              <h3 className="text-xl font-black tracking-tight text-slate-800 dark:text-slate-100">{learningPlan.title}</h3>
-              <p className="mt-2 text-[11px] text-slate-500 leading-relaxed">{learningPlan.summary}</p>
-            </div>
-            <button
-              onClick={() => setActiveTab('study')}
-              className="shrink-0 min-h-[46px] px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-500 text-white font-mono font-bold text-[10px] tracking-[0.18em] uppercase transition hover:opacity-95"
-            >
-              START PLAN
-            </button>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3">
-            {learningPlan.steps.map((step) => (
-              <div key={step.title} className={`p-3 rounded-2xl border ${innerBoxClass}`}>
-                <p className="text-[9px] font-mono font-bold tracking-[0.18em] uppercase text-slate-400">{step.title}</p>
-                <p className="mt-2 text-[11px] font-medium leading-relaxed text-slate-600 dark:text-slate-300">{step.detail}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-            <h3 className="mt-2 text-xl font-black tracking-tight">今日のルーティン</h3>
-          </div>
-          <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-[10px] font-mono font-bold text-blue-600">
-            {routineProgress}%
+          <div className="rounded-full border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold text-blue-600 dark:text-blue-300">
+            {routineProgress}% 完了
           </div>
         </div>
 
-        <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-slate-200/70">
+        <div className="mb-4 h-2 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-800">
           <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-500" style={{ width: `${routineProgress}%` }} />
         </div>
 
-        <p className="mb-3 text-[10px] font-mono text-slate-500">
-          苦手カード優先: <span className="font-bold text-slate-700">{weakCardsCount} 枚</span> / 復習待ち: <span className="font-bold text-slate-700">{dueCardsCount} 枚</span>
+        <p className="mb-3 text-xs text-slate-500">
+          苦手カード {weakCardsCount}枚 ・ 復習待ち {dueCardsCount}枚
         </p>
 
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {routineTasks.map((task) => (
             <button
               key={task.label}
-              onClick={() => setActiveTab(task.label.includes('クイズ') ? 'test' : task.label.includes('音声') ? 'study' : 'study')}
-              className={`flex w-full items-center justify-between rounded-2xl border px-3 py-2.5 text-left transition ${task.done ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500' : 'border-slate-200/80 bg-slate-50/60 text-slate-700'}`}
+              onClick={() => setActiveTab(task.label.includes('クイズ') ? 'test' : 'study')}
+              className={`flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition ${task.done ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'border-slate-200 bg-slate-50/70 text-slate-700 hover:border-blue-400 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-200'}`}
             >
-              <div className="flex items-center gap-2">
-                <span className="text-sm">{task.done ? '✅' : '⚡'}</span>
-                <span className="text-[11px] font-bold">{task.label}</span>
-              </div>
-              <span className="text-[10px] font-mono font-bold uppercase">{task.done ? 'Done' : 'Go'}</span>
+              <span className="flex items-center gap-2 text-sm font-bold">
+                <span aria-hidden="true">{task.done ? '✓' : '○'}</span>
+                {task.label}
+              </span>
+              <span className="shrink-0 text-xs font-bold">{task.done ? '完了' : '開始 →'}</span>
             </button>
           ))}
         </div>
-      </div>
+      </section>
 
       <div className="pt-2 grid grid-cols-1 md:grid-cols-2 gap-3">
         <button
           onClick={() => setActiveTab('study')}
-          className="min-h-[56px] p-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-mono font-bold text-xs tracking-wider shadow-lg shadow-blue-500/20 hover:opacity-95 hover:-translate-y-0.5 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase"
+          className="min-h-[56px] p-4 rounded-2xl bg-gradient-to-r from-blue-700 to-cyan-600 text-white font-bold text-sm shadow-lg shadow-blue-500/20 hover:opacity-95 hover:-translate-y-0.5 active:scale-[0.99] transition-all flex items-center justify-center gap-2"
         >
-          <span>🚀 Start Daily Review</span>
+          <span>今日の復習を始める</span>
         </button>
 
         <button
           onClick={() => setActiveTab('manage')}
-          className={`min-h-[56px] p-4 rounded-2xl border font-mono font-bold text-xs tracking-wider hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99] transition-all flex items-center justify-center gap-2 uppercase ${subContainerClass}`}
+          className={`min-h-[56px] p-4 rounded-2xl border font-bold text-sm hover:shadow-lg hover:-translate-y-0.5 active:scale-[0.99] transition-all flex items-center justify-center gap-2 ${subContainerClass}`}
         >
-          <span>✨ Create &amp; Generate Cards</span>
+          <span>カードを作成する</span>
         </button>
       </div>
 
@@ -238,7 +232,7 @@ export default function HomeTabContent({
         <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 sm:p-4 shadow-sm">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[9px] font-mono font-bold tracking-[0.2em] uppercase text-amber-400">Review needed</p>
+              <p className="text-xs font-bold text-amber-600">復習待ち</p>
               <p className="mt-1 text-sm font-bold break-words">{cards.filter((card) => (card.interval ?? 1) <= 1 || card.repetition === 0).length}枚のカードが復習待ちです</p>
             </div>
             <button
@@ -253,11 +247,11 @@ export default function HomeTabContent({
 
       <section className={`p-5 rounded-[28px] border bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-cyan-500/[0.04] ${subContainerClass}`}>
         <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-emerald-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> DAILY QUICK QUIZ
+          <div className="flex items-center gap-2 text-xs font-bold text-emerald-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> 今日のミニクイズ
           </div>
           {quickQuizStatus !== 'idle' && (
-            <button onClick={generateQuickQuiz} className="text-[9px] font-mono font-bold text-blue-400 hover:text-blue-300 hover:underline transition">NEXT QUESTION →</button>
+            <button onClick={generateQuickQuiz} className="text-xs font-bold text-blue-500 hover:text-blue-400 hover:underline transition">次の問題 →</button>
           )}
         </div>
 
@@ -271,7 +265,7 @@ export default function HomeTabContent({
           <div className="space-y-3">
             <div className={`p-4 rounded-xl border font-mono text-center transition-all ${innerBoxClass} ${quickQuizStatus === 'correct' ? 'border-green-500/50 bg-green-500/5' : quickQuizStatus === 'wrong' ? 'border-red-500/50 bg-red-500/5' : ''}`}>
               <span className="text-[9px] text-slate-500 block mb-1">
-                {quickQuizStatus === 'correct' ? '✨ CORRECT!' : quickQuizStatus === 'wrong' ? '❌ OOPS!' : '次の単語の正しい意味は？'}
+                {quickQuizStatus === 'correct' ? '正解！' : quickQuizStatus === 'wrong' ? 'もう一度覚え直そう' : 'この単語の意味は？'}
               </span>
               <span className="text-sm font-black text-slate-800 tracking-wide uppercase">
                 {quickQuizCard.front}
@@ -298,17 +292,17 @@ export default function HomeTabContent({
                       setSelectedOption(option);
                       if (option === quickQuizCard.back) {
                         setQuickQuizStatus('correct');
-                        speak('Excellent!');
+                        speak('正解です');
                       } else {
                         setQuickQuizStatus('wrong');
-                        speak('Wrong answer');
+                        speak('不正解です');
                       }
                     }}
                     className={`min-h-[52px] p-2.5 rounded-xl border text-[11px] font-medium text-left transition-all active:scale-[0.98] ${btnClass}`}
                   >
                     <div className="flex justify-between items-center">
                       <span className="truncate">{option}</span>
-                      {quickQuizStatus !== 'idle' && isCorrectOption && <span>check</span>}
+                      {quickQuizStatus !== 'idle' && isCorrectOption && <span aria-label="正解">✓</span>}
                     </div>
                   </button>
                 );
@@ -317,7 +311,7 @@ export default function HomeTabContent({
 
             {quickQuizStatus !== 'idle' && quickQuizCard.example && (
               <p className="text-[10px] text-slate-500 italic text-center animate-in fade-in duration-500">
-                Example: {quickQuizCard.example}
+                例文: {quickQuizCard.example}
               </p>
             )}
           </div>
@@ -326,18 +320,18 @@ export default function HomeTabContent({
 
       <section className={`p-5 rounded-2xl border ${subContainerClass}`}>
         <div className="flex justify-between items-center mb-3">
-          <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-red-400">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> NEEDS REVIEW
+          <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-red-500">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" /> 復習が必要
           </div>
-          <span className="text-[9px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/20 px-2 py-0.5 rounded-md">
-            {cards.filter((c) => (c.interval ?? 1) <= 1 || c.repetition === 0).length} CARDS
+          <span className="text-xs font-bold tabular-nums bg-red-500/10 text-red-500 border border-red-500/20 px-2.5 py-1 rounded-full">
+            {cards.filter((c) => (c.interval ?? 1) <= 1 || c.repetition === 0).length} 枚
           </span>
         </div>
 
         {cards.filter((c) => (c.interval ?? 1) <= 1 || c.repetition === 0).length > 0 ? (
           <div className="space-y-3">
-            <p className="text-[11px] text-slate-400">
-              最近 「AGAIN」 を選んだ単語、または記憶が薄れている単語があります。忘れる前に復習しましょう！
+            <p className="text-sm text-slate-500">
+              忘れる前に復習して、覚えたことを定着させましょう。
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -362,15 +356,15 @@ export default function HomeTabContent({
         ) : (
           <div className="text-center py-4">
             <span className="text-xl block mb-1">🎉</span>
-            <p className="text-[11px] font-mono text-emerald-400 font-bold">ALL CARDS ARE UP TO DATE! PERFECT!</p>
+            <p className="text-sm text-emerald-500 font-bold">復習するカードはありません</p>
             <p className="text-[10px] text-slate-500 mt-0.5">現在、復習が必要な単語はありません。素晴らしい記憶力です！</p>
           </div>
         )}
       </section>
 
       <section className="space-y-3">
-        <div className="flex items-center gap-2 text-[10px] font-mono font-bold tracking-wider text-blue-400 px-1">
-          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> RECOMMENDED STARTER DECKS
+        <div className="flex items-center gap-2 text-xs font-bold tracking-wider text-blue-500 px-1">
+          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> おすすめの単語帳
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -379,8 +373,8 @@ export default function HomeTabContent({
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xl">{deck.icon}</span>
-                  <span className="text-[9px] font-mono font-bold tracking-wider text-purple-400 bg-purple-500/10 border border-purple-500/20 px-2 py-0.5 rounded">
-                    {deck.cards.length} WORDS
+                  <span className="text-xs font-bold tabular-nums text-purple-500 bg-purple-500/10 border border-purple-500/20 px-2.5 py-1 rounded-full">
+                    {deck.cards.length} 枚
                   </span>
                 </div>
                 <h4 className="text-sm font-black tracking-tight text-slate-800">{deck.title}</h4>
